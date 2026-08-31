@@ -1078,51 +1078,20 @@ export function NearbyMapView({
         </section>
       ) : (
         <>
-          <section
-            className="real-nearby-map"
-            aria-label="Players within 20 kilometers"
-          >
-            <iframe src={mapUrl} title="OpenStreetMap showing the 20 kilometer player area" loading="lazy" />
-            <div className="map-radius-overlay" aria-hidden="true" />
-            <span className="radar-radius">20 km radius</span>
-            <div className="radar-center">
-              <Crosshair />
+          <section className="nearby-map-card">
+            <div className="real-nearby-map" aria-label="Map covering 20 kilometers around you">
+              <iframe src={mapUrl} title="OpenStreetMap showing the 20 kilometer player area" loading="lazy" />
+              <span className="map-radius-badge"><MapPinned /> 20 km search area</span>
+              <div className="map-you-marker"><Crosshair /><small>You</small></div>
             </div>
-            {nearby.map((player) => {
-              const distance = Math.min(
-                20,
-                Math.max(0, Number(player.distance_km)),
-              );
-              const radius = (distance / 20) * 43;
-              const angle = ((Number(player.bearing_deg) - 90) * Math.PI) / 180;
-              const left = 50 + Math.cos(angle) * radius;
-              const top = 50 + Math.sin(angle) * radius;
-              return (
-                <button
-                  key={player.id}
-                  className="radar-player"
-                  style={{ left: `${left}%`, top: `${top}%` }}
-                  onClick={() => onOpenProfile(player.id)}
-                  title={`${player.name}, ${distance.toFixed(1)} km away`}
-                >
-                  {player.avatar_url ? (
-                    <img src={player.avatar_url} alt={player.name} />
-                  ) : (
-                    <CircleUserRound />
-                  )}
-                </button>
-              );
-            })}
+            <div className="map-toolbar">
+              <span><i /> Location sharing is on</span>
+              <div>
+                <button onClick={() => void loadNearby(true)} disabled={loading}><Crosshair /> Refresh</button>
+                <button className="location-off-action" onClick={() => void disableLocation()} disabled={loading}><Lock /> Turn off</button>
+              </div>
+            </div>
           </section>
-          <div className="map-toolbar">
-            <span>
-              <i /> Location sharing is on
-            </span>
-            <div>
-              <button onClick={() => void loadNearby(true)} disabled={loading}><Crosshair /> Refresh</button>
-              <button className="location-off-action" onClick={() => void disableLocation()} disabled={loading}><Lock /> Turn off</button>
-            </div>
-          </div>
           {loading ? (
             <div className="social-empty">
               <span className="mini-loader" />
