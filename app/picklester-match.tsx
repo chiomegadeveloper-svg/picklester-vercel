@@ -89,12 +89,15 @@ function extractJoinCode(value: string) {
 
 function databaseMessage(message: string) {
   const normalized = message.toLowerCase();
-  return normalized.includes("schema cache") ||
-    normalized.includes("could not find the table") ||
-    normalized.includes("could not find the function") ||
-    (normalized.includes("function public.") && normalized.includes("does not exist"))
-    ? "Run the Picklester V15 upgrade SQL first."
-    : message;
+  if (normalized.includes("start_picklester_honesty_game"))
+    return "Honesty Start is missing. Run the Picklester V25 honesty-start repair SQL.";
+  if (normalized.includes("update_picklester_honesty_score"))
+    return "Honesty scoring is missing. Run the Picklester V18 SQL.";
+  if (normalized.includes("finalize_picklester_game_v15"))
+    return "Match finalization is missing. Run the corrected Picklester V15 SQL.";
+  if (normalized.includes("could not find the function"))
+    return `Database function missing: ${message}`;
+  return message;
 }
 
 export function PicklesterMatchDialog({
