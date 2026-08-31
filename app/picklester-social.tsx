@@ -1081,6 +1081,7 @@ export function NearbyMapView({
           <section className="nearby-map-card">
             <div className="real-nearby-map" aria-label="Map covering 20 kilometers around you">
               <iframe src={mapUrl} title="OpenStreetMap showing the 20 kilometer player area" loading="lazy" />
+              <div className="map-interaction-lock" aria-hidden="true" />
               <span className="map-radius-badge"><MapPinned /> 20 km search area</span>
               <div className="map-you-marker"><Crosshair /><small>You</small></div>
             </div>
