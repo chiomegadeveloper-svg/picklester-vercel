@@ -956,6 +956,7 @@ export function NearbyMapView({
   const [nearby, setNearby] = useState<NearbyPlayer[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [center, setCenter] = useState<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadNearby(), 0);
@@ -1013,10 +1014,12 @@ export function NearbyMapView({
     }
     if (latitude == null || longitude == null) {
       setEnabled(false);
+      setCenter(null);
       setNearby([]);
       setLoading(false);
       return;
     }
+    setCenter({ latitude, longitude });
     const { data, error } = await supabase.rpc("nearby_picklesters", {
       current_lat: latitude,
       current_lng: longitude,
@@ -1025,6 +1028,32 @@ export function NearbyMapView({
     setNearby(error ? [] : ((data || []) as NearbyPlayer[]));
     setLoading(false);
   }
+
+  async function disableLocation() {
+    setLoading(true);
+    const { error } = await supabase
+      .from("profile_locations")
+      .update({ location_enabled: false, updated_at: new Date().toISOString() })
+      .eq("user_id", viewer.id);
+    if (error) {
+      setLoading(false);
+      return toast.error(databaseError(error.message));
+    }
+    setEnabled(false);
+    setCenter(null);
+    setNearby([]);
+    setLoading(false);
+    toast.success("Location sharing is off.");
+  }
+
+  const mapUrl = center
+    ? (() => {
+        const latitudeDelta = 20 / 111.32;
+        const longitudeDelta = 20 / (111.32 * Math.max(0.2, Math.cos((center.latitude * Math.PI) / 180)));
+        const bbox = [center.longitude - longitudeDelta, center.latitude - latitudeDelta, center.longitude + longitudeDelta, center.latitude + latitudeDelta].join(",");
+        return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${encodeURIComponent(`${center.latitude},${center.longitude}`)}`;
+      })()
+    : "";
 
   return (
     <div className="map-page-view">
@@ -1050,13 +1079,12 @@ export function NearbyMapView({
       ) : (
         <>
           <section
-            className="player-radar"
+            className="real-nearby-map"
             aria-label="Players within 20 kilometers"
           >
-            <div className="radar-ring ring-one" />
-            <div className="radar-ring ring-two" />
-            <div className="radar-ring ring-three" />
-            <span className="radar-radius">20 km</span>
+            <iframe src={mapUrl} title="OpenStreetMap showing the 20 kilometer player area" loading="lazy" />
+            <div className="map-radius-overlay" aria-hidden="true" />
+            <span className="radar-radius">20 km radius</span>
             <div className="radar-center">
               <Crosshair />
             </div>
@@ -1065,7 +1093,7 @@ export function NearbyMapView({
                 20,
                 Math.max(0, Number(player.distance_km)),
               );
-              const radius = 8 + (distance / 20) * 39;
+              const radius = (distance / 20) * 43;
               const angle = ((Number(player.bearing_deg) - 90) * Math.PI) / 180;
               const left = 50 + Math.cos(angle) * radius;
               const top = 50 + Math.sin(angle) * radius;
@@ -1090,9 +1118,10 @@ export function NearbyMapView({
             <span>
               <i /> Location sharing is on
             </span>
-            <button onClick={() => void loadNearby(true)}>
-              <Crosshair /> Refresh
-            </button>
+            <div>
+              <button onClick={() => void loadNearby(true)} disabled={loading}><Crosshair /> Refresh</button>
+              <button className="location-off-action" onClick={() => void disableLocation()} disabled={loading}><Lock /> Turn off</button>
+            </div>
           </div>
           {loading ? (
             <div className="social-empty">
