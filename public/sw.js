@@ -1,6 +1,6 @@
-const CACHE = "picklester-v30-custom-domain-login";
+const CACHE = "picklester-v25-honesty-start-repair";
 self.addEventListener("install", (event) => event.waitUntil(Promise.all([
-  caches.open(CACHE).then((cache) => cache.addAll(["/", "/manifest.webmanifest", "/picklester-logo-transparent.png", "/icon-192.png", "/icon-512.png"])),
+  caches.open(CACHE).then((cache) => cache.addAll(["/", "/manifest.webmanifest", "/picklester-logo.png", "/icon-192.png", "/icon-512.png"])),
   self.skipWaiting(),
 ])));
 self.addEventListener("activate", (event) => event.waitUntil(Promise.all([
@@ -16,3 +16,4 @@ self.addEventListener("fetch", (event) => {
     const copy = response.clone(); caches.open(CACHE).then((cache) => cache.put(event.request, copy)); return response;
   }).catch(() => caches.match(event.request).then((cached) => cached || caches.match("/"))));
 });
+
