@@ -13,6 +13,9 @@ db/
 drizzle/
 examples/
 scripts/
-vendor/
+# Keep only the vendored Tailwind bundle required by app/globals.css.
+vendor/*
+!vendor/shadcn-tailwind-4.13.0.css
+!vendor/shadcn-tailwind-4.13.0.LICENSE.md
 worker/
 vite.config.ts
