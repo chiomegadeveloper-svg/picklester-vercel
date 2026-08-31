@@ -75,6 +75,12 @@ export function PicklesterApp({
   const soundPlayed = useRef(false);
 
   useEffect(() => {
+    const portraitOrientation = screen.orientation as ScreenOrientation & {
+      lock?: (orientation: "portrait-primary") => Promise<void>;
+    };
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      void portraitOrientation.lock?.("portrait-primary").catch(() => undefined);
+    }
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
