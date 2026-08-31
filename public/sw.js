@@ -1,6 +1,6 @@
-const CACHE = "picklester-v24-logo-fix";
+const CACHE = "picklester-v25-transparent-logo";
 self.addEventListener("install", (event) => event.waitUntil(Promise.all([
-  caches.open(CACHE).then((cache) => cache.addAll(["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"])),
+  caches.open(CACHE).then((cache) => cache.addAll(["/", "/manifest.webmanifest", "/picklester-logo-transparent.png", "/icon-192.png", "/icon-512.png"])),
   self.skipWaiting(),
 ])));
 self.addEventListener("activate", (event) => event.waitUntil(Promise.all([

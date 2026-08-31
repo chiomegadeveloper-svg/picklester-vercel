@@ -102,7 +102,9 @@ export function PicklesterApp({
     };
     syncViewFromUrl();
     window.addEventListener("popstate", syncViewFromUrl);
-    const timer = window.setTimeout(() => setShowSplash(false), 2800);
+    // Safety fallback only. The visible four-second duration starts from the
+    // logo-ready event inside SplashScreen.
+    const timer = window.setTimeout(() => setShowSplash(false), 6500);
 
     let active = true;
     const authSafetyTimer = window.setTimeout(() => {
@@ -289,7 +291,10 @@ export function PicklesterApp({
 
   if (showSplash)
     return (
-      <SplashScreen onImpact={() => void playPaddleHit(soundPlayed)} />
+      <SplashScreen
+        onImpact={() => void playPaddleHit(soundPlayed)}
+        onComplete={() => setShowSplash(false)}
+      />
     );
   if (authLoading)
     return (
@@ -338,7 +343,7 @@ export function PicklesterApp({
           >
             <img
               className="official-logo"
-              src="/icon-512.png"
+              src="/picklester-logo-transparent.png"
               alt="Picklester"
             />
           </button>
@@ -548,7 +553,13 @@ export function PicklesterApp({
   );
 }
 
-function SplashScreen({ onImpact }: { onImpact: () => void }) {
+function SplashScreen({
+  onImpact,
+  onComplete,
+}: {
+  onImpact: () => void;
+  onComplete: () => void;
+}) {
   const [ready, setReady] = useState(false);
   const started = useRef(false);
   const logo = useRef<HTMLImageElement>(null);
@@ -561,6 +572,7 @@ function SplashScreen({ onImpact }: { onImpact: () => void }) {
     // the logo has decoded. If autoplay is blocked, it is intentionally silent
     // rather than replaying late on an unrelated tap.
     window.setTimeout(onImpact, 180);
+    window.setTimeout(onComplete, 4000);
   }
 
   useEffect(() => {
@@ -578,7 +590,7 @@ function SplashScreen({ onImpact }: { onImpact: () => void }) {
         <span className="impact-ring" />
         <img
           ref={logo}
-          src="/icon-512.png"
+          src="/picklester-logo-transparent.png"
           alt="Picklester"
           width="512"
           height="512"

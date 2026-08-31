@@ -11,7 +11,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
   return (
     <main className="arena-shell">
       <div className="phone-app fatal-screen" role="alert">
-        <img src="/icon-512.png" alt="Picklester" />
+        <img src="/picklester-logo-transparent.png" alt="Picklester" />
         <AlertTriangle />
         <h1>Picklester could not start</h1>
         <p>The app hit a temporary startup problem. Try loading it again.</p>
