@@ -1,0 +1,18 @@
+node_modules/
+.next/
+dist/
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+
+# ChatGPT Sites / Cloudflare-only source is excluded from the Vercel edition.
+.openai/
+build/
+db/
+drizzle/
+examples/
+scripts/
+vendor/
+worker/
+vite.config.ts
