@@ -648,7 +648,7 @@ export function PicklesterMatchDialog({
               )}
             </button>
             <button
-              className="dialog-secondary-link create-game-action"
+              className="create-new-game-button"
               onClick={() => setMode("scan")}
             >
               Scan a creator’s QR instead
