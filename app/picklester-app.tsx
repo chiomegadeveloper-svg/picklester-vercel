@@ -78,9 +78,10 @@ export function PicklesterApp({
     const portraitOrientation = screen.orientation as ScreenOrientation & {
       lock?: (orientation: "portrait-primary") => Promise<void>;
     };
-    if (window.matchMedia("(display-mode: standalone)").matches) {
+    const keepPortrait = () =>
       void portraitOrientation.lock?.("portrait-primary").catch(() => undefined);
-    }
+    keepPortrait();
+    screen.orientation?.addEventListener?.("change", keepPortrait);
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
@@ -108,10 +109,6 @@ export function PicklesterApp({
     };
     syncViewFromUrl();
     window.addEventListener("popstate", syncViewFromUrl);
-    // Safety fallback only. The visible four-second duration starts from the
-    // logo-ready event inside SplashScreen.
-    const timer = window.setTimeout(() => setShowSplash(false), 6500);
-
     let active = true;
     const authSafetyTimer = window.setTimeout(() => {
       if (!active) return;
@@ -157,8 +154,8 @@ export function PicklesterApp({
     );
     return () => {
       active = false;
-      window.clearTimeout(timer);
       window.clearTimeout(authSafetyTimer);
+      screen.orientation?.removeEventListener?.("change", keepPortrait);
       window.removeEventListener("popstate", syncViewFromUrl);
       listener.subscription.unsubscribe();
     };
