@@ -64,7 +64,8 @@ create policy "Staff update GM tickets" on public.gm_tickets for update to authe
 grant select, insert on public.community_messages, public.private_messages to authenticated;
 grant select, insert, update on public.gm_tickets to authenticated;
 
-create or replace function public.list_picklester_community_messages(message_limit integer default 50)
+drop function if exists public.list_picklester_community_messages(integer);
+create function public.list_picklester_community_messages(message_limit integer default 50)
 returns table(id uuid, sender_id uuid, body text, created_at timestamptz, sender_name text, sender_username text, sender_avatar_url text)
 language sql stable security definer set search_path = '' as $$
   select m.id, m.sender_id, m.body, m.created_at, p.name, p.username, p.avatar_url
@@ -75,7 +76,8 @@ $$;
 revoke all on function public.list_picklester_community_messages(integer) from public;
 grant execute on function public.list_picklester_community_messages(integer) to authenticated;
 
-create or replace function public.list_picklester_private_messages(message_limit integer default 50)
+drop function if exists public.list_picklester_private_messages(integer);
+create function public.list_picklester_private_messages(message_limit integer default 50)
 returns table(id uuid, sender_id uuid, recipient_id uuid, body text, created_at timestamptz, sender_name text, sender_username text, sender_avatar_url text, recipient_name text)
 language sql stable security definer set search_path = '' as $$
   select m.id, m.sender_id, m.recipient_id, m.body, m.created_at, sender.name, sender.username, sender.avatar_url, recipient.name
@@ -124,7 +126,8 @@ $$;
 drop trigger if exists feed_picklester_verification_after_update on public.profiles;
 create trigger feed_picklester_verification_after_update after update of verified on public.profiles for each row execute procedure public.feed_picklester_verification();
 
-create or replace function public.list_picklester_activity_feed(result_limit integer default 100)
+drop function if exists public.list_picklester_activity_feed(integer);
+create function public.list_picklester_activity_feed(result_limit integer default 100)
 returns table(id uuid, event_type text, actor_id uuid, actor_name text, actor_username text, actor_avatar_url text, message text, created_at timestamptz)
 language sql stable security definer set search_path = '' as $$
   select f.id, f.event_type, f.actor_id, p.name, p.username, p.avatar_url, f.message, f.created_at
