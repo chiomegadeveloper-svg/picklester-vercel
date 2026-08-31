@@ -194,7 +194,12 @@ export function PicklesterMatchDialog({
       if (error) throw new Error(databaseMessage(error.message));
       const code = String(data || "").toUpperCase();
       if (!code) throw new Error("The game code was not created.");
-      await loadGame(code, true);
+      const createdGame = await loadGame(code, true);
+      if (honestyMode && !createdGame?.honesty_mode) {
+        throw new Error(
+          "Honesty mode needs the Picklester V24 Supabase upgrade SQL.",
+        );
+      }
       const joinUrl = `${window.location.origin}/?join=${encodeURIComponent(code)}`;
       setQrImage(
         await QRCode.toDataURL(joinUrl, {
