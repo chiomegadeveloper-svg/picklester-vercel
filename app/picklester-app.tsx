@@ -551,6 +551,7 @@ export function PicklesterApp({
 function SplashScreen({ onImpact }: { onImpact: () => void }) {
   const [ready, setReady] = useState(false);
   const started = useRef(false);
+  const logo = useRef<HTMLImageElement>(null);
 
   function startSplash() {
     if (started.current) return;
@@ -562,6 +563,12 @@ function SplashScreen({ onImpact }: { onImpact: () => void }) {
     window.setTimeout(onImpact, 180);
   }
 
+  useEffect(() => {
+    // A cached image can finish before React attaches its onLoad handler.
+    // Start explicitly in that case so the splash never remains transparent.
+    if (logo.current?.complete) startSplash();
+  }, []);
+
   return (
     <main
       className={`splash-screen${ready ? " is-ready" : ""}`}
@@ -570,6 +577,7 @@ function SplashScreen({ onImpact }: { onImpact: () => void }) {
       <div className="splash-impact">
         <span className="impact-ring" />
         <img
+          ref={logo}
           src="/icon-512.png"
           alt="Picklester"
           width="512"
