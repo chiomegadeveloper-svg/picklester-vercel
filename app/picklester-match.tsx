@@ -502,7 +502,8 @@ export function PicklesterMatchDialog({
     null;
   const ready = Boolean(game && players.length === game.player_limit && (game.honesty_mode || referee));
   const canScore = Boolean(myParticipant && (myParticipant.role === "referee" || game?.honesty_mode));
-  const scoringActive = Boolean(game && (game.status === "scoring" || (game.honesty_mode && ready)));
+  const isCreator = Boolean(game && game.creator_id === viewer.id);
+  const scoringActive = Boolean(game && game.status === "scoring");
   const winningTeam =
     game &&
     Math.max(game.score_team_one, game.score_team_two) >= game.score_limit
@@ -556,7 +557,7 @@ export function PicklesterMatchDialog({
 
         {mode === "menu" && (
           <div className="match-entry-grid">
-            <button onClick={() => setMode("create")}>
+            <button className="create-game-action" onClick={() => setMode("create")}>
               <Users />
               <b>Create game</b>
               <small>Display one QR for everyone</small>
@@ -634,7 +635,7 @@ export function PicklesterMatchDialog({
               </span>
             </div>
             <button
-              className="dialog-primary"
+              className="dialog-primary create-game-action"
               onClick={createGame}
               disabled={busy || (honestyMode && !honestyAccepted)}
             >
@@ -647,7 +648,7 @@ export function PicklesterMatchDialog({
               )}
             </button>
             <button
-              className="dialog-secondary-link"
+              className="dialog-secondary-link create-game-action"
               onClick={() => setMode("scan")}
             >
               Scan a creator’s QR instead
@@ -911,7 +912,7 @@ export function PicklesterMatchDialog({
                 </span>
               </div>
             )}
-            {game.status === "ready" && canScore && !game.honesty_mode && (
+            {game.status === "ready" && ready && ((!game.honesty_mode && canScore) || (game.honesty_mode && isCreator)) && (
               <button
                 className="dialog-primary start-game-action"
                 disabled={busy}
