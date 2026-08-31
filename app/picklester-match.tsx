@@ -229,6 +229,7 @@ export function PicklesterMatchDialog({
     setJoinCode(normalized);
     const loaded = data as GameState;
     setGame(loaded);
+    if (loaded.honesty_mode) setJoinRole("player");
     if (loaded.creator_id === viewer.id && !qrImage) {
       const joinUrl = `${window.location.origin}/?join=${encodeURIComponent(normalized)}`;
       setQrImage(
@@ -568,8 +569,9 @@ export function PicklesterMatchDialog({
                   : "Choose an action"}
           </DialogTitle>
           <DialogDescription>
-            Every game is recorded. One creator, the required players, and one
-            volunteer referee join the same event.
+            {mode === "pairing" && game?.honesty_mode
+              ? "HONESTY MODE: no referee is required. The creator starts after every player joins."
+              : "Every game is recorded. One creator, the required players, and one volunteer referee join the same event."}
           </DialogDescription>
         </DialogHeader>
 
