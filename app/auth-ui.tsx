@@ -135,7 +135,7 @@ export function AuthView() {
   return (
     <div className="phone-app auth-page">
       <section className="auth-brand">
-        <img src="/picklester-logo.png" alt="Picklester" />
+        <img src="/icon-512.png" alt="Picklester" width="512" height="512" />
         <small>VERIFIED PICKLEBALL COMMUNITY</small>
         <h1>
           {mode === "register" ? "Create your player profile" : "Welcome back"}
@@ -284,7 +284,7 @@ export function CompleteProfile({
   return (
     <div className="phone-app auth-page complete-profile-page">
       <section className="auth-brand">
-        <img src="/picklester-logo.png" alt="Picklester" />
+        <img src="/icon-512.png" alt="Picklester" width="512" height="512" />
         <small>ONE LAST STEP</small>
         <h1>Complete your profile</h1>
         <p>Add your player name and username before requesting verification.</p>
