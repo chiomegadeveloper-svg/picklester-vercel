@@ -20,3 +20,9 @@ npm run build
 
 The project is configured for Vercel's native Next.js runtime. See
 `VERCEL-DEPLOYMENT.md` for environment variables and OAuth URL changes.
+
+## Portable production ZIP
+
+Run `npm run export:production` to verify the production build and create a
+complete source handoff at `dist/Picklester-production-source.zip`. Connection
+details and continuation instructions are included in `PRODUCTION-HANDOFF.md`.
