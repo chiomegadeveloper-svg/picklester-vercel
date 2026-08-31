@@ -1049,8 +1049,15 @@ export function NearbyMapView({
   const mapUrl = center
     ? (() => {
         const latitudeDelta = 20 / 111.32;
-        const longitudeDelta = 20 / (111.32 * Math.max(0.2, Math.cos((center.latitude * Math.PI) / 180)));
-        const bbox = [center.longitude - longitudeDelta, center.latitude - latitudeDelta, center.longitude + longitudeDelta, center.latitude + latitudeDelta].join(",");
+        const longitudeDelta =
+          20 /
+          (111.32 * Math.max(0.2, Math.cos((center.latitude * Math.PI) / 180)));
+        const bbox = [
+          center.longitude - longitudeDelta,
+          center.latitude - latitudeDelta,
+          center.longitude + longitudeDelta,
+          center.latitude + latitudeDelta,
+        ].join(",");
         return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${encodeURIComponent(`${center.latitude},${center.longitude}`)}`;
       })()
     : "";
