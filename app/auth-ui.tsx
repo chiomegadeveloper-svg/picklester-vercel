@@ -18,21 +18,20 @@ import {
   setKeepMeLoggedIn,
   supabase,
 } from "./lib/supabase";
-import { picklesterUrl } from "./lib/site";
 import type { PlayerProfile } from "./picklester-types";
 import { InstallPicklester } from "./install-picklester";
 
 type AuthMode = "register" | "signin";
 
 export function AuthView() {
-  const [mode, setMode] = useState<AuthMode>("register");
+  const [mode, setMode] = useState<AuthMode>("signin");
+  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState("");
   const preview = useMemo(
     () => (avatar ? URL.createObjectURL(avatar) : null),
@@ -46,7 +45,9 @@ export function AuthView() {
     [preview],
   );
 
-  useEffect(() => setKeepLoggedIn(getKeepMeLoggedIn()), []);
+  useEffect(() => {
+    setKeepLoggedIn(getKeepMeLoggedIn());
+  }, []);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -80,7 +81,7 @@ export function AuthView() {
           email: cleanEmail,
           password,
           options: {
-            emailRedirectTo: picklesterUrl("/?registration=confirmed"),
+            emailRedirectTo: `${window.location.origin}/?registration=confirmed`,
             data: { name: name.trim(), username: cleanUsername },
           },
         });
@@ -122,7 +123,7 @@ export function AuthView() {
     setKeepMeLoggedIn(keepLoggedIn);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: picklesterUrl("/") },
+      options: { redirectTo: "https://www.picklester.asia" },
     });
     if (error) toast.error(error.message);
   }
@@ -134,7 +135,7 @@ export function AuthView() {
       type: "signup",
       email: pendingConfirmationEmail,
       options: {
-        emailRedirectTo: picklesterUrl("/?registration=confirmed"),
+        emailRedirectTo: `${window.location.origin}/?registration=confirmed`,
       },
     });
     setBusy(false);
@@ -145,7 +146,7 @@ export function AuthView() {
   return (
     <div className="phone-app auth-page">
       <section className="auth-brand">
-        <img src="/picklester-logo-transparent.png" alt="Picklester" width="512" height="512" />
+        <img src="/picklester-logo.png" alt="Picklester" />
         <small>VERIFIED PICKLEBALL COMMUNITY</small>
         <h1>
           {mode === "register" ? "Create your player profile" : "Welcome back"}
@@ -181,10 +182,7 @@ export function AuthView() {
             <input
               type="checkbox"
               checked={keepLoggedIn}
-              onChange={(event) => {
-                setKeepLoggedIn(event.target.checked);
-                setKeepMeLoggedIn(event.target.checked);
-              }}
+              onChange={(event) => setKeepLoggedIn(event.target.checked)}
             />
             <span aria-hidden="true">{keepLoggedIn ? "✓" : ""}</span>
             <div>
@@ -311,7 +309,7 @@ export function CompleteProfile({
   return (
     <div className="phone-app auth-page complete-profile-page">
       <section className="auth-brand">
-        <img src="/picklester-logo-transparent.png" alt="Picklester" width="512" height="512" />
+        <img src="/picklester-logo.png" alt="Picklester" />
         <small>ONE LAST STEP</small>
         <h1>Complete your profile</h1>
         <p>Add your player name and username before requesting verification.</p>
