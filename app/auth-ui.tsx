@@ -13,7 +13,12 @@ import {
   Save,
 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "./lib/supabase";
+import {
+  getKeepMeLoggedIn,
+  setKeepMeLoggedIn,
+  supabase,
+} from "./lib/supabase";
+import { picklesterUrl } from "./lib/site";
 import type { PlayerProfile } from "./picklester-types";
 import { InstallPicklester } from "./install-picklester";
 
@@ -27,6 +32,7 @@ export function AuthView() {
   const [password, setPassword] = useState("");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState("");
   const preview = useMemo(
     () => (avatar ? URL.createObjectURL(avatar) : null),
@@ -39,6 +45,8 @@ export function AuthView() {
     },
     [preview],
   );
+
+  useEffect(() => setKeepLoggedIn(getKeepMeLoggedIn()), []);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -53,6 +61,7 @@ export function AuthView() {
     setBusy(true);
     try {
       if (mode === "signin") {
+        setKeepMeLoggedIn(keepLoggedIn);
         const { error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
@@ -71,7 +80,7 @@ export function AuthView() {
           email: cleanEmail,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/?registration=confirmed`,
+            emailRedirectTo: picklesterUrl("/?registration=confirmed"),
             data: { name: name.trim(), username: cleanUsername },
           },
         });
@@ -110,9 +119,10 @@ export function AuthView() {
   }
 
   async function social() {
+    setKeepMeLoggedIn(keepLoggedIn);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: picklesterUrl("/") },
     });
     if (error) toast.error(error.message);
   }
@@ -124,7 +134,7 @@ export function AuthView() {
       type: "signup",
       email: pendingConfirmationEmail,
       options: {
-        emailRedirectTo: `${window.location.origin}/?registration=confirmed`,
+        emailRedirectTo: picklesterUrl("/?registration=confirmed"),
       },
     });
     setBusy(false);
@@ -166,6 +176,23 @@ export function AuthView() {
           <b>G</b>
           <span>Continue with Google</span>
         </button>
+        {mode === "signin" && (
+          <label className="keep-login-option">
+            <input
+              type="checkbox"
+              checked={keepLoggedIn}
+              onChange={(event) => {
+                setKeepLoggedIn(event.target.checked);
+                setKeepMeLoggedIn(event.target.checked);
+              }}
+            />
+            <span aria-hidden="true">{keepLoggedIn ? "✓" : ""}</span>
+            <div>
+              <b>Keep me logged in</b>
+              <small>Stay signed in on this device</small>
+            </div>
+          </label>
+        )}
         <div className="auth-divider">
           <span>
             {mode === "register"
