@@ -179,10 +179,12 @@ button, input { font: inherit; } button { -webkit-tap-highlight-color: transpare
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .splash-screen { position: fixed; inset: 0; z-index: 100; min-height: 100svh; display: grid; place-items: center; align-content: center; gap: 24px; overflow: hidden; background: radial-gradient(circle at 50% 42%, #08a9e51c, transparent 34%), #080b10; }
-.splash-impact { position: relative; width: min(78vw, 330px); display: grid; place-items: center; }
-.splash-impact img { position: relative; z-index: 2; width: 100%; height: auto; filter: drop-shadow(0 14px 45px #08a9e533); animation: logo-impact .55s cubic-bezier(.2,.9,.2,1) both; }
-.impact-ring { position: absolute; width: 150px; height: 150px; border: 2px solid #bdf40099; border-radius: 50%; animation: impact-ring .8s .18s ease-out both; }
-.splash-loader { display: flex; gap: 7px; }.splash-loader span { width: 7px; height: 7px; border-radius: 50%; background: #08a9e5; animation: splash-dot .8s ease-in-out infinite alternate; }.splash-loader span:nth-child(2) { animation-delay: .16s; background: #bdf400; }.splash-loader span:nth-child(3) { animation-delay: .32s; }
+.splash-impact { position: relative; width: min(72vw, 300px); display: grid; place-items: center; }
+.splash-impact img { position: relative; z-index: 2; width: 100%; height: auto; opacity: 0; transform: scale(.76) rotate(-3deg); filter: drop-shadow(0 14px 45px #08a9e533); }
+.splash-screen.is-ready .splash-impact img { animation: logo-impact .55s cubic-bezier(.2,.9,.2,1) both; }
+.impact-ring { position: absolute; width: 150px; height: 150px; border: 2px solid #bdf40099; border-radius: 50%; opacity: 0; }
+.splash-screen.is-ready .impact-ring { animation: impact-ring .8s .18s ease-out both; }
+.splash-loader { display: flex; gap: 7px; opacity: 0; transition: opacity .2s .35s ease; }.splash-screen.is-ready .splash-loader { opacity: 1; }.splash-loader span { width: 7px; height: 7px; border-radius: 50%; background: #08a9e5; animation: splash-dot .8s ease-in-out infinite alternate; }.splash-loader span:nth-child(2) { animation-delay: .16s; background: #bdf400; }.splash-loader span:nth-child(3) { animation-delay: .32s; }
 .splash-screen > small { color: #6f8296; font-size: 8px; font-weight: 800; letter-spacing: .28em; }
 @keyframes logo-impact { 0% { opacity: 0; transform: scale(.76) rotate(-3deg); } 55% { opacity: 1; transform: scale(1.06) rotate(1deg); } 100% { transform: scale(1); } }
 @keyframes impact-ring { from { opacity: .9; transform: scale(.25); } to { opacity: 0; transform: scale(2.4); } }
