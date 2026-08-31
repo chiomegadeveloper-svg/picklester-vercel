@@ -1,7 +1,13 @@
--- Creator-controlled start for honesty-mode games. Run once after V18.
-create or replace function public.start_picklester_honesty_game(requested_code text)
+-- Picklester V23: creator-controlled start for honesty-mode games.
+-- Run once after V18.
+drop function if exists public.start_picklester_honesty_game(text);
+
+create function public.start_picklester_honesty_game(requested_code text)
 returns void language plpgsql security definer set search_path='' as $$
-declare target_game public.picklester_games%rowtype; player_count integer; required_players integer;
+declare
+  target_game public.picklester_games%rowtype;
+  player_count integer;
+  required_players integer;
 begin
   select * into target_game from public.picklester_games
   where join_code=upper(trim(requested_code)) for update;
@@ -19,6 +25,7 @@ begin
   update public.picklester_game_participants set individual_points=0
   where game_id=target_game.id and role='player';
 end; $$;
+
 revoke all on function public.start_picklester_honesty_game(text) from public;
 grant execute on function public.start_picklester_honesty_game(text) to authenticated;
 notify pgrst,'reload schema';
