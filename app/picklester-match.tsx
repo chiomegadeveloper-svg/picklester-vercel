@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "./lib/supabase";
 import type { PlayerProfile } from "./picklester-types";
+import { picklesterUrl } from "./lib/site";
 
 type MatchFormat = "solo" | "duo";
 type MatchRole = "player" | "referee";
@@ -200,7 +201,7 @@ export function PicklesterMatchDialog({
           "Honesty mode needs the Picklester V24 Supabase upgrade SQL.",
         );
       }
-      const joinUrl = `${window.location.origin}/?join=${encodeURIComponent(code)}`;
+      const joinUrl = picklesterUrl(`/?join=${encodeURIComponent(code)}`);
       setQrImage(
         await QRCode.toDataURL(joinUrl, {
           width: 420,
@@ -236,7 +237,7 @@ export function PicklesterMatchDialog({
     setGame(loaded);
     if (loaded.honesty_mode) setJoinRole("player");
     if (loaded.creator_id === viewer.id && !qrImage) {
-      const joinUrl = `${window.location.origin}/?join=${encodeURIComponent(normalized)}`;
+      const joinUrl = picklesterUrl(`/?join=${encodeURIComponent(normalized)}`);
       setQrImage(
         await QRCode.toDataURL(joinUrl, {
           width: 420,
