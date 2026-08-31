@@ -5,7 +5,7 @@ project in another ChatGPT account or local development environment.
 
 ## Production connections
 
-- Live app: https://picklester-vercel.vercel.app
+- Live app: https://www.picklester.asia
 - GitHub repository: https://github.com/chiomegadeveloper-svg/picklester-vercel
 - Supabase project URL: https://vqieqybctuywwcppzqor.supabase.co
 - Supabase publishable key: stored in `.env.example`
