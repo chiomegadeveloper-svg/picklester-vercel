@@ -1,4 +1,4 @@
-const CACHE = "picklester-v25-honesty-start-repair";
+const CACHE = "picklester-v26-ui-restore";
 self.addEventListener("install", (event) => event.waitUntil(Promise.all([
   caches.open(CACHE).then((cache) => cache.addAll(["/", "/manifest.webmanifest", "/picklester-logo.png", "/icon-192.png", "/icon-512.png"])),
   self.skipWaiting(),
@@ -16,4 +16,3 @@ self.addEventListener("fetch", (event) => {
     const copy = response.clone(); caches.open(CACHE).then((cache) => cache.put(event.request, copy)); return response;
   }).catch(() => caches.match(event.request).then((cached) => cached || caches.match("/"))));
 });
-
