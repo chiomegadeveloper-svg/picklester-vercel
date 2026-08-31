@@ -28,7 +28,6 @@ import {
 import { toast } from "sonner";
 import { supabase } from "./lib/supabase";
 import type { PlayerProfile } from "./picklester-types";
-import { picklesterUrl } from "./lib/site";
 
 type MatchFormat = "solo" | "duo";
 type MatchRole = "player" | "referee";
@@ -89,9 +88,11 @@ function extractJoinCode(value: string) {
 }
 
 function databaseMessage(message: string) {
-  return message.includes("schema cache") ||
-    message.includes("Could not find the table") ||
-    message.includes("function")
+  const normalized = message.toLowerCase();
+  return normalized.includes("schema cache") ||
+    normalized.includes("could not find the table") ||
+    normalized.includes("could not find the function") ||
+    (normalized.includes("function public.") && normalized.includes("does not exist"))
     ? "Run the Picklester V15 upgrade SQL first."
     : message;
 }
@@ -195,13 +196,8 @@ export function PicklesterMatchDialog({
       if (error) throw new Error(databaseMessage(error.message));
       const code = String(data || "").toUpperCase();
       if (!code) throw new Error("The game code was not created.");
-      const createdGame = await loadGame(code, true);
-      if (honestyMode && !createdGame?.honesty_mode) {
-        throw new Error(
-          "Honesty mode needs the Picklester V24 Supabase upgrade SQL.",
-        );
-      }
-      const joinUrl = picklesterUrl(`/?join=${encodeURIComponent(code)}`);
+      await loadGame(code, true);
+      const joinUrl = `${window.location.origin}/?join=${encodeURIComponent(code)}`;
       setQrImage(
         await QRCode.toDataURL(joinUrl, {
           width: 420,
@@ -235,9 +231,8 @@ export function PicklesterMatchDialog({
     setJoinCode(normalized);
     const loaded = data as GameState;
     setGame(loaded);
-    if (loaded.honesty_mode) setJoinRole("player");
     if (loaded.creator_id === viewer.id && !qrImage) {
-      const joinUrl = picklesterUrl(`/?join=${encodeURIComponent(normalized)}`);
+      const joinUrl = `${window.location.origin}/?join=${encodeURIComponent(normalized)}`;
       setQrImage(
         await QRCode.toDataURL(joinUrl, {
           width: 420,
@@ -278,21 +273,14 @@ export function PicklesterMatchDialog({
       await verifyCurrentPlayer();
       const { error } = await supabase.rpc("join_picklester_game", {
         requested_code: game.join_code,
-        desired_role: game.honesty_mode ? "player" : joinRole,
+        desired_role: joinRole,
       });
       if (error) throw new Error(databaseMessage(error.message));
-      if (game.honesty_mode) {
-        const { error: statusError } = await supabase.rpc(
-          "refresh_picklester_honesty_status",
-          { target_game: game.id },
-        );
-        if (statusError) throw new Error(databaseMessage(statusError.message));
-      }
       await loadGame(game.join_code, true);
       stopCamera();
       setMode("pairing");
       toast.success(
-        !game.honesty_mode && joinRole === "referee"
+        joinRole === "referee"
           ? "You joined as volunteer referee."
           : "You joined as a player.",
       );
@@ -433,17 +421,6 @@ export function PicklesterMatchDialog({
   async function startGame() {
     if (!game) return;
     setBusy(true);
-    if (game.honesty_mode) {
-      const { error: statusError } = await supabase.rpc(
-        "refresh_picklester_honesty_status",
-        { target_game: game.id },
-      );
-      if (statusError) {
-        toast.error(databaseMessage(statusError.message));
-        setBusy(false);
-        return;
-      }
-    }
     const { error } = await supabase.rpc(game.honesty_mode ? "start_picklester_honesty_game" : "start_picklester_game", {
       requested_code: game.join_code,
     });
@@ -527,8 +504,7 @@ export function PicklesterMatchDialog({
     null;
   const ready = Boolean(game && players.length === game.player_limit && (game.honesty_mode || referee));
   const canScore = Boolean(myParticipant && (myParticipant.role === "referee" || game?.honesty_mode));
-  const isCreator = Boolean(game && game.creator_id === viewer.id);
-  const scoringActive = Boolean(game && game.status === "scoring");
+  const scoringActive = Boolean(game && (game.status === "scoring" || (game.honesty_mode && ready)));
   const winningTeam =
     game &&
     Math.max(game.score_team_one, game.score_team_two) >= game.score_limit
@@ -575,15 +551,14 @@ export function PicklesterMatchDialog({
                   : "Choose an action"}
           </DialogTitle>
           <DialogDescription>
-            {mode === "pairing" && game?.honesty_mode
-              ? "HONESTY MODE: no referee is required. The creator starts after every player joins."
-              : "Every game is recorded. One creator, the required players, and one volunteer referee join the same event."}
+            Every game is recorded. One creator, the required players, and one
+            volunteer referee join the same event.
           </DialogDescription>
         </DialogHeader>
 
         {mode === "menu" && (
           <div className="match-entry-grid">
-            <button className="create-game-action" onClick={() => setMode("create")}>
+            <button onClick={() => setMode("create")}>
               <Users />
               <b>Create game</b>
               <small>Display one QR for everyone</small>
@@ -661,7 +636,7 @@ export function PicklesterMatchDialog({
               </span>
             </div>
             <button
-              className="dialog-primary create-game-action"
+              className="dialog-primary"
               onClick={createGame}
               disabled={busy || (honestyMode && !honestyAccepted)}
             >
@@ -674,7 +649,7 @@ export function PicklesterMatchDialog({
               )}
             </button>
             <button
-              className="create-new-game-button"
+              className="dialog-secondary-link"
               onClick={() => setMode("scan")}
             >
               Scan a creator’s QR instead
@@ -734,12 +709,6 @@ export function PicklesterMatchDialog({
             </div>
             {game && !myParticipant && (
               <>
-                {game.honesty_mode && (
-                  <div className="honesty-mode-alert" role="status">
-                    <ShieldCheck />
-                    <span><b>HONESTY MODE</b><small>No referee is required. Players agree to report the score truthfully.</small></span>
-                  </div>
-                )}
                 <div className="found-game-card">
                   <QrCode />
                   <span>
@@ -749,17 +718,13 @@ export function PicklesterMatchDialog({
                     </b>
                     <small>
                       {players.length}/{game.player_limit} players ·{" "}
-                      {game.honesty_mode
-                        ? "No referee required"
-                        : referee
-                          ? "Referee joined"
-                          : "Referee open"}
+                      {referee ? "Referee joined" : "Referee open"}
                     </small>
                   </span>
                 </div>
-                <label>{game.honesty_mode ? "Join this honesty game" : "Join this game as"}</label>
+                <label>Join this game as</label>
                 <div className="role-picker">
-                  {!game.honesty_mode && <button
+                  <button
                     className={joinRole === "player" ? "selected" : ""}
                     disabled={players.length >= game.player_limit}
                     onClick={() => setJoinRole("player")}
@@ -771,7 +736,7 @@ export function PicklesterMatchDialog({
                         ? "Player slots full"
                         : "Take next player slot"}
                     </small>
-                  </button>}
+                  </button>
                   <button
                     className={joinRole === "referee" ? "selected" : ""}
                     disabled={Boolean(referee)}
@@ -791,7 +756,7 @@ export function PicklesterMatchDialog({
                   onClick={joinGame}
                   disabled={
                     busy ||
-                    (game.honesty_mode || joinRole === "player"
+                    (joinRole === "player"
                       ? players.length >= game.player_limit
                       : Boolean(referee))
                   }
@@ -801,7 +766,7 @@ export function PicklesterMatchDialog({
               </>
             )}
             <button
-              className="create-new-game-button"
+              className="dialog-secondary-link"
               onClick={() => setMode("create")}
             >
               Create a new game instead
@@ -811,12 +776,6 @@ export function PicklesterMatchDialog({
 
         {mode === "pairing" && game && (
           <div className="dialog-body pairing-body live-pairing-body">
-            {game.honesty_mode && (
-              <div className="honesty-mode-alert pairing-honesty-alert" role="status">
-                <ShieldCheck />
-                <span><b>HONESTY MODE</b><small>No volunteer referee. The creator starts the game when every player has joined.</small></span>
-              </div>
-            )}
             {game.creator_id === viewer.id && (
               <div className="creator-qr-card">
                 {qrImage ? (
@@ -849,17 +808,15 @@ export function PicklesterMatchDialog({
               <div>
                 <b>{ready ? "All positions filled" : "Waiting for members"}</b>
                 <span>
-                  {game.honesty_mode
-                    ? `${game.player_limit} players required`
-                    : game.format === "solo"
-                      ? "3 users required"
-                      : "5 users required"}
+                  {game.format === "solo"
+                    ? "3 users required"
+                    : "5 users required"}
                 </span>
               </div>
               <div className="pair-progress-track">
                 <span
                   style={{
-                    width: `${Math.round((game.participants.length / (game.honesty_mode ? game.player_limit : game.total_required)) * 100)}%`,
+                    width: `${Math.round((game.participants.length / game.total_required) * 100)}%`,
                   }}
                 />
               </div>
@@ -894,7 +851,7 @@ export function PicklesterMatchDialog({
                   </article>
                 );
               })}
-              {!game.honesty_mode && <article
+              <article
                 className={`referee-position ${referee ? "filled" : ""}`}
               >
                 <span>
@@ -913,15 +870,9 @@ export function PicklesterMatchDialog({
                   </small>
                 </div>
                 {referee && <CheckCircle2 />}
-              </article>}
-              {!game.honesty_mode && isCreator && players.length === game.player_limit && !referee && (
-                <div className="normal-game-honesty-help">
-                  <ShieldCheck />
-                  <span><b>This is a referee game</b><small>A referee must join. To play without one, create a new game and check HONESTY MODE before creating it.</small></span>
-                </div>
-              )}
+              </article>
             </div>
-            {!game.honesty_mode && ["pairing", "ready"].includes(game.status) && myParticipant && (
+            {["pairing", "ready"].includes(game.status) && myParticipant && (
               <div className="pair-role-switch">
                 <span>
                   <b>Your position</b>
@@ -962,7 +913,7 @@ export function PicklesterMatchDialog({
                 </span>
               </div>
             )}
-            {["pairing", "ready"].includes(game.status) && ready && ((!game.honesty_mode && canScore) || (game.honesty_mode && isCreator)) && (
+            {game.status === "ready" && canScore && !game.honesty_mode && (
               <button
                 className="dialog-primary start-game-action"
                 disabled={busy}
