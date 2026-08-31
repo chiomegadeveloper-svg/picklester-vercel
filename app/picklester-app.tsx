@@ -338,7 +338,7 @@ export function PicklesterApp({
           >
             <img
               className="official-logo"
-              src="/picklester-logo.png"
+              src="/icon-512.png"
               alt="Picklester"
             />
           </button>
