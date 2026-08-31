@@ -338,7 +338,7 @@ export function PicklesterApp({
           >
             <img
               className="official-logo"
-              src="/picklester-logo.png"
+              src="/picklester-logo-transparent.png"
               alt="Picklester"
             />
           </button>
@@ -578,7 +578,7 @@ function SplashScreen({ onImpact }: { onImpact: () => void }) {
         <span className="impact-ring" />
         <img
           ref={logo}
-          src="/icon-512.png"
+          src="/picklester-logo-transparent.png"
           alt="Picklester"
           width="512"
           height="512"

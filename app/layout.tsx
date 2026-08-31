@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Verified pickleball matches, MMR rankings, open play and volunteer-referee scoring.",
   applicationName: "Picklester",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon-192.png", apple: "/icon-512.png" },
+  icons: { icon: "/picklester-logo-transparent.png", apple: "/picklester-logo-transparent.png" },
 };
 
 export const viewport: Viewport = {

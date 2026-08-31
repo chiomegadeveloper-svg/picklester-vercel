@@ -106,7 +106,7 @@ function databaseError(message: string) {
   return message.includes("relation") ||
     message.includes("schema cache") ||
     message.includes("Could not find the table")
-    ? "Run the Picklester V15 upgrade SQL first."
+    ? "The connected database is missing a required community feature."
     : message;
 }
 

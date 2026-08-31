@@ -89,12 +89,14 @@ function extractJoinCode(value: string) {
 
 function databaseMessage(message: string) {
   const normalized = message.toLowerCase();
-  if (normalized.includes("start_picklester_honesty_game"))
-    return "Honesty Start is missing. Run the Picklester V25 honesty-start repair SQL.";
-  if (normalized.includes("update_picklester_honesty_score"))
-    return "Honesty scoring is missing. Run the Picklester V18 SQL.";
+  if (
+    normalized.includes("picklester_game_v26") ||
+    normalized.includes("picklester_honesty_score_v26") ||
+    normalized.includes("picklester_serve_v26")
+  )
+    return "Game services need the single Picklester V26 database repair.";
   if (normalized.includes("finalize_picklester_game_v15"))
-    return "Match finalization is missing. Run the corrected Picklester V15 SQL.";
+    return "Official match finalization is not installed in the connected database.";
   if (normalized.includes("could not find the function"))
     return `Database function missing: ${message}`;
   return message;
@@ -275,7 +277,7 @@ export function PicklesterMatchDialog({
     setBusy(true);
     try {
       await verifyCurrentPlayer();
-      const { error } = await supabase.rpc("join_picklester_game", {
+      const { error } = await supabase.rpc("join_picklester_game_v26", {
         requested_code: game.join_code,
         desired_role: game.honesty_mode ? "player" : joinRole,
       });
@@ -425,7 +427,7 @@ export function PicklesterMatchDialog({
   async function startGame() {
     if (!game) return;
     setBusy(true);
-    const { error } = await supabase.rpc(game.honesty_mode ? "start_picklester_honesty_game" : "start_picklester_game", {
+    const { error } = await supabase.rpc(game.honesty_mode ? "start_picklester_honesty_game_v26" : "start_picklester_game", {
       requested_code: game.join_code,
     });
     if (error) toast.error(databaseMessage(error.message));
@@ -439,7 +441,7 @@ export function PicklesterMatchDialog({
   async function changePlayerScore(playerId: string, delta: -1 | 1) {
     if (!game) return;
     setBusy(true);
-    const { error } = await supabase.rpc(game.honesty_mode ? "update_picklester_honesty_score" : "update_picklester_player_score", {
+    const { error } = await supabase.rpc(game.honesty_mode ? "update_picklester_honesty_score_v26" : "update_picklester_player_score", {
       requested_code: game.join_code,
       scored_user: playerId,
       score_delta: delta,
@@ -462,7 +464,7 @@ export function PicklesterMatchDialog({
   async function changeServe(servingTeam: 1 | 2, serverNumber: 0 | 1 | 2) {
     if (!game) return;
     setBusy(true);
-    const { error } = await supabase.rpc("update_picklester_serve", {
+    const { error } = await supabase.rpc("update_picklester_serve_v26", {
       requested_code: game.join_code,
       new_serving_team: servingTeam,
       new_server_number: serverNumber,

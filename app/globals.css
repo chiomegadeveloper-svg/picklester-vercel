@@ -27,7 +27,7 @@ button, input { font: inherit; } button { -webkit-tap-highlight-color: transpare
 .arena-shell { min-height: 100svh; background: radial-gradient(circle at 50% -10%, #2447c633, transparent 34rem), linear-gradient(135deg, #07090d, #0d1017); }
 .phone-app { position: relative; width: 100%; max-width: 480px; min-height: 100svh; margin: 0 auto; background: #090b10; overflow: hidden; box-shadow: 0 0 80px #000; }
 .app-header { position: sticky; top: 0; z-index: 30; height: 68px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; background: #090b10eb; border-bottom: 1px solid #202631; backdrop-filter: blur(18px); }
-.brand-lockup { display: flex; align-items: center; gap: 10px; color: white; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
+.brand-lockup { width: 104px; height: 58px; display: flex; align-items: center; justify-content: flex-start; gap: 10px; overflow: visible; color: white; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
 .brand-lockup > span:last-child { display: grid; line-height: 1; }.brand-lockup strong { font-size: 16px; letter-spacing: .08em; font-style: italic; }.brand-lockup small { margin-top: 5px; color: #788396; font-size: 7px; letter-spacing: .22em; }
 .brand-mark { width: 36px; height: 36px; padding: 3px; display: grid; place-items: center; border-radius: 12px; background: conic-gradient(var(--yellow) 0 25%, var(--blue) 0 50%, var(--orange) 0 75%, var(--green) 0); transform: rotate(-7deg); }
 .brand-mark span { width: 100%; height: 100%; display: grid; place-items: center; border-radius: 9px; background: #0b0e14; color: white; font-weight: 900; font-style: italic; transform: rotate(7deg); }
@@ -80,7 +80,7 @@ button, input { font: inherit; } button { -webkit-tap-highlight-color: transpare
 /* Picklester official brand refinement */
 .arena-shell { background: radial-gradient(circle at 50% -10%, #08a9e514, transparent 34rem), linear-gradient(135deg, #07090d, #0d1017); }
 .app-header { height: 72px; padding: 7px 16px; background: #090b10f2; border-bottom-color: #15283c; }
-.official-logo { display: block; width: 126px; height: 58px; object-fit: contain; object-position: left center; filter: drop-shadow(0 2px 8px #08a9e51c); }
+.official-logo { display: block; width: 92px; height: 54px; object-fit: contain; object-position: center; filter: drop-shadow(0 2px 8px #08a9e533); }
 .mini-avatar, .avatar-ring, .profile-avatar-large { background: linear-gradient(145deg, #087fae, #073653); border-color: #12a7da; }
 .profile-scorecard:before { border-color: #08a9e509; }
 .profile-scorecard:after { height: 2px; background: linear-gradient(90deg, var(--blue), var(--yellow)); }
@@ -179,7 +179,7 @@ button, input { font: inherit; } button { -webkit-tap-highlight-color: transpare
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .splash-screen { position: fixed; inset: 0; z-index: 100; min-height: 100svh; display: grid; place-items: center; align-content: center; gap: 24px; overflow: hidden; background: radial-gradient(circle at 50% 42%, #08a9e51c, transparent 34%), #080b10; }
-.splash-impact { position: relative; width: min(72vw, 300px); display: grid; place-items: center; }
+.splash-impact { position: relative; width: min(68vw, 290px); aspect-ratio: 1; display: grid; place-items: center; }
 .splash-impact img { position: relative; z-index: 2; width: 100%; height: auto; opacity: 1; transform: scale(1); filter: drop-shadow(0 14px 45px #08a9e533); }
 .splash-screen.is-ready .splash-impact img { animation: logo-impact .55s cubic-bezier(.2,.9,.2,1) both; }
 .impact-ring { position: absolute; width: 150px; height: 150px; border: 2px solid #bdf40099; border-radius: 50%; opacity: 0; }
@@ -202,7 +202,7 @@ button, input { font: inherit; } button { -webkit-tap-highlight-color: transpare
 .fatal-screen button svg { width: 15px; }
 .auth-page { min-height: 100svh; padding: 18px 20px 28px; overflow-y: auto; background: radial-gradient(circle at 88% 0%, #08a9e51b, transparent 26rem), #090b10; }
 .auth-brand { display: grid; justify-items: center; padding: 4px 12px 18px; text-align: center; }
-.auth-brand img { width: 176px; height: 92px; object-fit: contain; filter: drop-shadow(0 8px 28px #08a9e526); }
+.auth-brand img { width: 160px; height: 112px; object-fit: contain; filter: drop-shadow(0 8px 28px #08a9e526); }
 .auth-brand small { margin-top: 2px; color: #55cfff; font-size: 7px; font-weight: 800; letter-spacing: .18em; }
 .auth-brand h1 { max-width: 340px; margin: 10px 0 7px; font-size: 23px; line-height: 1.12; font-style: italic; text-transform: uppercase; }
 .auth-brand p { max-width: 350px; margin: 0; color: #8491a1; font-size: 9px; line-height: 1.55; }

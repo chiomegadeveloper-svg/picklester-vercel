@@ -25,7 +25,7 @@ type AuthMode = "register" | "signin";
 
 export function AuthView() {
   const [mode, setMode] = useState<AuthMode>("signin");
-  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
+  const [keepLoggedIn, setKeepLoggedIn] = useState(getKeepMeLoggedIn);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -44,10 +44,6 @@ export function AuthView() {
     },
     [preview],
   );
-
-  useEffect(() => {
-    setKeepLoggedIn(getKeepMeLoggedIn());
-  }, []);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -146,7 +142,7 @@ export function AuthView() {
   return (
     <div className="phone-app auth-page">
       <section className="auth-brand">
-        <img src="/picklester-logo.png" alt="Picklester" />
+        <img src="/picklester-logo-transparent.png" alt="Picklester" />
         <small>VERIFIED PICKLEBALL COMMUNITY</small>
         <h1>
           {mode === "register" ? "Create your player profile" : "Welcome back"}
@@ -309,7 +305,7 @@ export function CompleteProfile({
   return (
     <div className="phone-app auth-page complete-profile-page">
       <section className="auth-brand">
-        <img src="/picklester-logo.png" alt="Picklester" />
+        <img src="/picklester-logo-transparent.png" alt="Picklester" />
         <small>ONE LAST STEP</small>
         <h1>Complete your profile</h1>
         <p>Add your player name and username before requesting verification.</p>
