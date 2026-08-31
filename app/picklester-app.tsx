@@ -102,10 +102,7 @@ export function PicklesterApp({
     };
     syncViewFromUrl();
     window.addEventListener("popstate", syncViewFromUrl);
-    const timer = window.setTimeout(() => setShowSplash(false), 3000);
-    void playPaddleHit(soundPlayed);
-    const unlockAudio = () => void playPaddleHit(soundPlayed);
-    window.addEventListener("pointerdown", unlockAudio, { once: true });
+    const timer = window.setTimeout(() => setShowSplash(false), 2800);
 
     let active = true;
     const authSafetyTimer = window.setTimeout(() => {
@@ -154,7 +151,6 @@ export function PicklesterApp({
       active = false;
       window.clearTimeout(timer);
       window.clearTimeout(authSafetyTimer);
-      window.removeEventListener("pointerdown", unlockAudio);
       window.removeEventListener("popstate", syncViewFromUrl);
       listener.subscription.unsubscribe();
     };
@@ -291,7 +287,10 @@ export function PicklesterApp({
     window.location.assign("/");
   }
 
-  if (showSplash) return <SplashScreen />;
+  if (showSplash)
+    return (
+      <SplashScreen onImpact={() => void playPaddleHit(soundPlayed)} />
+    );
   if (authLoading)
     return (
       <main className="arena-shell">
@@ -549,12 +548,35 @@ export function PicklesterApp({
   );
 }
 
-function SplashScreen() {
+function SplashScreen({ onImpact }: { onImpact: () => void }) {
+  const [ready, setReady] = useState(false);
+  const started = useRef(false);
+
+  function startSplash() {
+    if (started.current) return;
+    started.current = true;
+    setReady(true);
+    // Match the sound to the expanding impact ring instead of playing before
+    // the logo has decoded. If autoplay is blocked, it is intentionally silent
+    // rather than replaying late on an unrelated tap.
+    window.setTimeout(onImpact, 180);
+  }
+
   return (
-    <main className="splash-screen" aria-label="Picklester is loading">
+    <main
+      className={`splash-screen${ready ? " is-ready" : ""}`}
+      aria-label="Picklester is loading"
+    >
       <div className="splash-impact">
         <span className="impact-ring" />
-        <img src="/picklester-logo.png" alt="Picklester" />
+        <img
+          src="/icon-512.png"
+          alt="Picklester"
+          width="512"
+          height="512"
+          decoding="async"
+          onLoad={startSplash}
+        />
       </div>
       <div className="splash-loader">
         <span />
