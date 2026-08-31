@@ -75,13 +75,6 @@ export function PicklesterApp({
   const soundPlayed = useRef(false);
 
   useEffect(() => {
-    const portraitOrientation = screen.orientation as ScreenOrientation & {
-      lock?: (orientation: "portrait-primary") => Promise<void>;
-    };
-    const keepPortrait = () =>
-      void portraitOrientation.lock?.("portrait-primary").catch(() => undefined);
-    keepPortrait();
-    screen.orientation?.addEventListener?.("change", keepPortrait);
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
@@ -109,6 +102,8 @@ export function PicklesterApp({
     };
     syncViewFromUrl();
     window.addEventListener("popstate", syncViewFromUrl);
+    const timer = window.setTimeout(() => setShowSplash(false), 4000);
+
     let active = true;
     const authSafetyTimer = window.setTimeout(() => {
       if (!active) return;
@@ -154,8 +149,8 @@ export function PicklesterApp({
     );
     return () => {
       active = false;
+      window.clearTimeout(timer);
       window.clearTimeout(authSafetyTimer);
-      screen.orientation?.removeEventListener?.("change", keepPortrait);
       window.removeEventListener("popstate", syncViewFromUrl);
       listener.subscription.unsubscribe();
     };
@@ -294,10 +289,7 @@ export function PicklesterApp({
 
   if (showSplash)
     return (
-      <SplashScreen
-        onImpact={() => void playPaddleHit(soundPlayed)}
-        onComplete={() => setShowSplash(false)}
-      />
+      <SplashScreen onImpact={() => void playPaddleHit(soundPlayed)} />
     );
   if (authLoading)
     return (
@@ -346,7 +338,7 @@ export function PicklesterApp({
           >
             <img
               className="official-logo"
-              src="/picklester-logo-transparent.png"
+              src="/picklester-logo.png"
               alt="Picklester"
             />
           </button>
@@ -556,13 +548,7 @@ export function PicklesterApp({
   );
 }
 
-function SplashScreen({
-  onImpact,
-  onComplete,
-}: {
-  onImpact: () => void;
-  onComplete: () => void;
-}) {
+function SplashScreen({ onImpact }: { onImpact: () => void }) {
   const [ready, setReady] = useState(false);
   const started = useRef(false);
   const logo = useRef<HTMLImageElement>(null);
@@ -575,7 +561,6 @@ function SplashScreen({
     // the logo has decoded. If autoplay is blocked, it is intentionally silent
     // rather than replaying late on an unrelated tap.
     window.setTimeout(onImpact, 180);
-    window.setTimeout(onComplete, 4000);
   }
 
   useEffect(() => {
@@ -593,7 +578,7 @@ function SplashScreen({
         <span className="impact-ring" />
         <img
           ref={logo}
-          src="/picklester-logo-transparent.png"
+          src="/icon-512.png"
           alt="Picklester"
           width="512"
           height="512"
