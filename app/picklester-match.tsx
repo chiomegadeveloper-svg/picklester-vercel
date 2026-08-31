@@ -908,6 +908,12 @@ export function PicklesterMatchDialog({
                 </div>
                 {referee && <CheckCircle2 />}
               </article>}
+              {!game.honesty_mode && isCreator && players.length === game.player_limit && !referee && (
+                <div className="normal-game-honesty-help">
+                  <ShieldCheck />
+                  <span><b>This is a referee game</b><small>A referee must join. To play without one, create a new game and check HONESTY MODE before creating it.</small></span>
+                </div>
+              )}
             </div>
             {!game.honesty_mode && ["pairing", "ready"].includes(game.status) && myParticipant && (
               <div className="pair-role-switch">
