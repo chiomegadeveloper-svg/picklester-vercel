@@ -36,7 +36,7 @@ That command runs the full Next.js production build before creating
 
 For a new Supabase database, run `supabase/picklester-schema.sql`, followed by
 the numbered upgrade files in ascending order through
-`picklester-v23-honesty-start.sql`.
+`picklester-v24-honesty-mode-response.sql`.
 
 Honesty game sequence:
 
