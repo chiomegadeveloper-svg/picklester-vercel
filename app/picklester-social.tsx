@@ -67,7 +67,7 @@ type TicketRow = { id:string; subject:string; message:string; status:string; own
 
 type ActivityItem = {
   id: string;
-  event_type: "verified" | "match_win" | "mvp" | "top10";
+  event_type: string;
   actor_id: string;
   actor_name: string;
   actor_username: string | null;
@@ -185,8 +185,47 @@ export function SocialHomeView({
     return () => window.clearTimeout(timer);
   }, [filter]);
 
-  async function loadHome(next: HomeFilter, query = "") {
-    setLoading(true);
+  useEffect(() => {
+    if (filter !== "recent") return;
+    let refreshTimer: number | undefined;
+    const refreshFeed = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(
+        () => void loadHome("recent", "", true),
+        180,
+      );
+    };
+    const channel = supabase
+      .channel(`picklester-live-feed-${profile?.id || "visitor"}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "picklester_activity_feed",
+        },
+        refreshFeed,
+      )
+      .subscribe();
+
+    window.addEventListener("picklester:activity", refreshFeed);
+    window.addEventListener("focus", refreshFeed);
+    const poll = window.setInterval(refreshFeed, 10000);
+    return () => {
+      window.clearTimeout(refreshTimer);
+      window.clearInterval(poll);
+      window.removeEventListener("picklester:activity", refreshFeed);
+      window.removeEventListener("focus", refreshFeed);
+      void supabase.removeChannel(channel);
+    };
+  }, [filter, profile?.id]);
+
+  async function loadHome(
+    next: HomeFilter,
+    query = "",
+    background = false,
+  ) {
+    if (!background) setLoading(true);
     if (next === "recent") {
       const [{ data, error }, activityResult] = await Promise.all([
         supabase.rpc("list_picklester_posts", { sort_mode: "recent", result_limit: 30 }),
@@ -223,7 +262,7 @@ export function SocialHomeView({
       setPlayers(error ? [] : ((data || []) as PlayerResult[]));
       setPosts([]);
     }
-    setLoading(false);
+    if (!background) setLoading(false);
   }
 
   async function toggleLike(postId: string) {
@@ -797,7 +836,7 @@ export function SocialProfileView({
             <LocateFixed />
             <b>Nearby GPS</b>
             <small>
-              Share only while you want players within 20 km to find you.
+              Share only while you want players within 10 km to find you.
             </small>
           </span>
           <Switch
@@ -1023,7 +1062,7 @@ export function NearbyMapView({
     const { data, error } = await supabase.rpc("nearby_picklesters", {
       current_lat: latitude,
       current_lng: longitude,
-      radius_km: 20,
+      radius_km: 10,
     });
     setNearby(error ? [] : ((data || []) as NearbyPlayer[]));
     setLoading(false);
@@ -1048,9 +1087,9 @@ export function NearbyMapView({
 
   const mapUrl = center
     ? (() => {
-        const latitudeDelta = 20 / 111.32;
+        const latitudeDelta = 10 / 111.32;
         const longitudeDelta =
-          20 /
+          10 /
           (111.32 * Math.max(0.2, Math.cos((center.latitude * Math.PI) / 180)));
         const bbox = [
           center.longitude - longitudeDelta,
@@ -1066,7 +1105,7 @@ export function NearbyMapView({
     <div className="map-page-view">
       <div className="page-heading map-heading">
         <div>
-          <small>20 KM PLAYER RADAR</small>
+          <small>10 KM PLAYER RADAR</small>
           <h1>Nearby Picklesters</h1>
           <p>Only verified players who turned on GPS can appear.</p>
         </div>
@@ -1086,10 +1125,10 @@ export function NearbyMapView({
       ) : (
         <>
           <section className="nearby-map-card">
-            <div className="real-nearby-map" aria-label="Map covering 20 kilometers around you">
-              <iframe src={mapUrl} title="OpenStreetMap showing the 20 kilometer player area" loading="lazy" />
+            <div className="real-nearby-map" aria-label="Map covering 10 kilometers around you">
+              <iframe src={mapUrl} title="OpenStreetMap showing the 10 kilometer player area" loading="lazy" />
               <div className="map-interaction-lock" aria-hidden="true" />
-              <span className="map-radius-badge"><MapPinned /> 20 km search area</span>
+              <span className="map-radius-badge"><MapPinned /> 10 km search area</span>
               <span className="map-fixed-badge"><Lock /> Fixed</span>
               <div className="map-you-marker"><Crosshair /><small>You</small></div>
             </div>
@@ -1136,7 +1175,7 @@ export function NearbyMapView({
             <SocialEmpty
               icon={<MapPinned />}
               title="No nearby players yet"
-              text="Verified players within 20 km will appear when they enable GPS."
+              text="Verified players within 10 km will appear when they enable GPS."
             />
           )}
         </>
