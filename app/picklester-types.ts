@@ -8,7 +8,7 @@ export type PlayerProfile = {
   username: string | null;
   avatar_url: string | null;
   verified: boolean;
-  role: "player" | "admin" | "owner";
+  role: "player" | "gm" | "admin" | "owner";
   mmr: number | null;
   level_name: string | null;
   official_wins: number;

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import {
   Bell,
   ChevronRight,
+  CircleDollarSign,
   CircleUserRound,
   Home,
   Loader2,
@@ -17,7 +18,6 @@ import {
   Swords,
   Ticket,
   Trophy,
-  UserCheck,
 } from "lucide-react";
 import {
   Dialog,
@@ -298,9 +298,10 @@ export function PicklesterApp({
     if (
       next === "admin" &&
       profile?.role !== "owner" &&
-      profile?.role !== "admin"
+      profile?.role !== "admin" &&
+      profile?.role !== "gm"
     ) {
-      toast.error("Owner access is required.");
+      toast.error("Picklester staff access is required.");
       return;
     }
     const nextUrl =
@@ -319,7 +320,12 @@ export function PicklesterApp({
   function requireVerified(action: () => void) {
     if (!session?.user) return;
     const currentRole = profile?.role || "player";
-    const hasAccess = Boolean(profile?.verified || currentRole === "owner" || currentRole === "admin");
+    const hasAccess = Boolean(
+      profile?.verified ||
+      currentRole === "owner" ||
+      currentRole === "admin" ||
+      currentRole === "gm",
+    );
     if (!hasAccess)
       return toast.error(
         "Owner verification is required before creating or joining a game.",
@@ -393,11 +399,11 @@ export function PicklesterApp({
             />
           </button>
           <div className="header-actions">
-            {(profile?.role === "owner" || profile?.role === "admin") && (
+            {(profile?.role === "owner" || profile?.role === "admin" || profile?.role === "gm") && (
               <button
                 className="icon-button control-center-header"
                 onClick={() => navigate("admin")}
-                aria-label="Open owner control center"
+                aria-label="Open staff control center"
               >
                 <ShieldCheck size={18} />
               </button>
@@ -447,7 +453,8 @@ export function PicklesterApp({
               verified={Boolean(
                 profile?.verified ||
                 profile?.role === "owner" ||
-                profile?.role === "admin",
+                profile?.role === "admin" ||
+                profile?.role === "gm",
               )}
               onCreate={() => void requireVerified(() => openMatch("create"))}
               onScan={() => void requireVerified(() => openMatch("scan"))}
@@ -849,18 +856,34 @@ function PlayView({
   );
 }
 
+const ADMIN_TASKS = [
+  "Review and verify genuine new-player accounts.",
+  "Check member names, usernames, and profile photos for compliance.",
+  "Answer player support tickets clearly and respectfully.",
+  "Monitor official-game pairing and incomplete match records.",
+  "Review score disputes and preserve supporting information.",
+  "Watch for suspicious results, repeat abuse, or rating manipulation.",
+  "Monitor volunteer-referee conduct and report recurring problems.",
+  "Help enforce community, feed, comment, and chat standards.",
+  "Guide players with Game Pass or payment concerns without changing balances.",
+  "Escalate bans, Coin grants, staff roles, and serious cases to the owner.",
+] as const;
+
 function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [tickets, setTickets] = useState<Array<{id:string;user_id:string;subject:string;message:string;status:string;owner_reply:string|null;created_at:string;user_name:string;user_username:string|null}>>([]);
   const [purchaseLogs, setPurchaseLogs] = useState<Array<{id:string;user_id:string;pass_type:string;amount:number|null;payment_reference:string|null;created_at:string;user_name:string;user_username:string|null}>>([]);
   const [purchaseForm, setPurchaseForm] = useState({ userId: "", passType: "5", amount: "", reference: "" });
+  const [coinGrantForm, setCoinGrantForm] = useState({ userId: "", amount: "", reason: "" });
+  const [grantingCoins, setGrantingCoins] = useState(false);
+  const [roleDrafts, setRoleDrafts] = useState<Record<string, "player" | "gm" | "admin">>({});
   const [ticketReplies, setTicketReplies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [adminError, setAdminError] = useState<string | null>(null);
   const [openTicketId, setOpenTicketId] = useState<string | null>(null);
   const [ticketPage, setTicketPage] = useState(1);
 
-  async function loadPlayers() {
+  const loadPlayers = useCallback(async () => {
     setLoading(true);
     setAdminError(null);
     let { data, error } = await supabase
@@ -877,15 +900,17 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
       toast.error(error.message);
     }
     setPlayers((data || []) as PlayerProfile[]);
-    if (currentRole === "owner") {
+    if (currentRole !== "player") {
       const { data: ticketRows, error: ticketError } = await supabase.rpc("list_picklester_owner_tickets");
       if (ticketError) toast.error(ticketError.message);
       else setTickets((ticketRows || []) as typeof tickets);
+    }
+    if (currentRole === "owner") {
       const { data: logRows, error: logError } = await supabase.rpc("list_picklester_gamepass_purchases");
       if (!logError) setPurchaseLogs((logRows || []) as typeof purchaseLogs);
     }
     setLoading(false);
-  }
+  }, [currentRole]);
 
   async function replyToTicket(ticketId: string, status: "in_progress" | "resolved") {
     const reply = (ticketReplies[ticketId] || "").trim();
@@ -911,29 +936,37 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
   useEffect(() => {
     const timer = window.setTimeout(() => void loadPlayers(), 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [loadPlayers]);
 
-  async function verify(playerId: string) {
-    const { error } = await supabase.rpc("set_picklester_verification", {
-      target_user: playerId,
-      approved: true,
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Player verified.");
-    await loadPlayers();
-  }
-
-  async function changeRole(playerId: string, role: "player" | "admin") {
+  async function changeRole(playerId: string, role: "player" | "gm" | "admin") {
     const { error } = await supabase.rpc("set_picklester_role", {
       target_user: playerId,
       new_role: role,
     });
     if (error) return toast.error(error.message);
-    toast.success(
-      role === "admin"
-        ? "Member promoted to admin."
-        : "Admin returned to player role.",
-    );
+    toast.success(role === "admin" ? "Member promoted to Admin." : role === "gm" ? "Member promoted to Game Master." : "Member returned to Player role.");
+    await loadPlayers();
+  }
+
+  async function grantCoins() {
+    if (!coinGrantForm.userId) return toast.error("Choose a member first.");
+    const amount = Number(coinGrantForm.amount);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100000)
+      return toast.error("Enter a whole Coin amount from 1 to 100,000.");
+    if (coinGrantForm.reason.trim().length < 3)
+      return toast.error("Enter a short reason for this grant.");
+
+    setGrantingCoins(true);
+    const { data, error } = await supabase.rpc("grant_picklester_coins", {
+      target_user: coinGrantForm.userId,
+      coin_amount: amount,
+      grant_reason: coinGrantForm.reason.trim(),
+    });
+    setGrantingCoins(false);
+    if (error) return toast.error(error.message);
+    const result = data as { balance?: number } | null;
+    toast.success(`${amount.toLocaleString()} Gold Coins granted. New balance: ${(result?.balance ?? 0).toLocaleString()}.`);
+    setCoinGrantForm({ userId: "", amount: "", reason: "" });
     await loadPlayers();
   }
 
@@ -959,10 +992,9 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
     await loadPlayers();
   }
 
-  const pending = players.filter(
-    (player) => player.role === "player" && !player.verified,
-  );
-  const verified = players.filter((player) => player.verified).length;
+  const playerCount = players.filter((player) => player.role === "player").length;
+  const adminCount = players.filter((player) => player.role === "admin").length;
+  const gmCount = players.filter((player) => player.role === "gm").length;
   const ticketPageSize = 5;
   const ticketPages = Math.max(1, Math.ceil(tickets.length / ticketPageSize));
   const visibleTickets = tickets.slice((ticketPage - 1) * ticketPageSize, ticketPage * ticketPageSize);
@@ -970,77 +1002,63 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
     <div className="view-stack page-view">
       <div className="page-heading admin-heading">
         <div>
-          <small>OWNER ONLY</small>
+          <small>{currentRole === "owner" ? "OWNER CONTROL" : currentRole === "admin" ? "ADMIN CONTROL" : "GAME MASTER CONTROL"}</small>
           <h1>Control Center</h1>
-          <p>Review members and protect recorded results.</p>
+          <p>Support members and protect recorded results.</p>
         </div>
         <ShieldCheck />
       </div>
       <section className="admin-stats">
         <article>
-          <span>Pending</span>
-          <b>{loading ? "…" : pending.length}</b>
-        </article>
-        <article>
-          <span>Verified</span>
-          <b>{loading ? "…" : verified}</b>
-        </article>
-        <article>
           <span>Players</span>
-          <b>{loading ? "…" : players.length}</b>
+          <b>{loading ? "…" : playerCount}</b>
+        </article>
+        <article>
+          <span>Admins</span>
+          <b>{loading ? "…" : adminCount}</b>
+        </article>
+        <article>
+          <span>Game Masters</span>
+          <b>{loading ? "…" : gmCount}</b>
         </article>
       </section>
+      <section className="automatic-membership-card">
+        <ShieldCheck />
+        <div>
+          <h2>Automatic membership is active</h2>
+          <p>New registrations can use Picklester immediately. No owner or admin approval is required.</p>
+        </div>
+      </section>
       {adminError && <section className="admin-access-error"><ShieldCheck /><div><b>Control Center could not load</b><p>{adminError}</p></div><button onClick={() => void loadPlayers()}>Retry</button></section>}
-      {currentRole === "owner" && (
+      {currentRole !== "player" && (
         <>
           <SectionTitle title="Tickets received" />
           <section className="owner-ticket-list">
             {tickets.length ? visibleTickets.map((ticket) => (
               <article key={ticket.id} className={openTicketId === ticket.id ? "open" : ""}>
                 <header><div><b>{ticket.subject}</b><small>@{ticket.user_username || ticket.user_name}</small></div><span className={`ticket-status ${ticket.status}`}>{ticket.status.replace("_", " ")}</span></header>
-                {openTicketId !== ticket.id ? <button className="open-ticket" onClick={() => setOpenTicketId(ticket.id)}>Open conversation</button> : <><div className="ticket-conversation"><div className="ticket-user-message"><b>{ticket.user_name}</b><p>{ticket.message}</p></div>{ticket.owner_reply && <div className="ticket-owner-message"><b>You · Owner</b><p>{ticket.owner_reply}</p></div>}</div><textarea value={ticketReplies[ticket.id] || ""} onChange={(event) => setTicketReplies((current) => ({...current, [ticket.id]: event.target.value}))} placeholder="Reply to this player" maxLength={1200} /><div><button onClick={() => void replyToTicket(ticket.id, "in_progress")}>Send reply</button><button className="resolve-ticket" onClick={() => void replyToTicket(ticket.id, "resolved")}>Reply & resolve</button><button className="delete-ticket" onClick={() => void deleteTicket(ticket.id)}>Delete</button><button className="close-ticket" onClick={() => setOpenTicketId(null)}>Close</button></div></>}
+                {openTicketId !== ticket.id ? <button className="open-ticket" onClick={() => setOpenTicketId(ticket.id)}>Open conversation</button> : <><div className="ticket-conversation"><div className="ticket-user-message"><b>{ticket.user_name}</b><p>{ticket.message}</p></div>{ticket.owner_reply && <div className="ticket-owner-message"><b>Picklester Staff</b><p>{ticket.owner_reply}</p></div>}</div><textarea value={ticketReplies[ticket.id] || ""} onChange={(event) => setTicketReplies((current) => ({...current, [ticket.id]: event.target.value}))} placeholder="Reply to this player" maxLength={1200} /><div><button onClick={() => void replyToTicket(ticket.id, "in_progress")}>Send reply</button><button className="resolve-ticket" onClick={() => void replyToTicket(ticket.id, "resolved")}>Reply & resolve</button>{currentRole === "owner" && <button className="delete-ticket" onClick={() => void deleteTicket(ticket.id)}>Delete</button>}<button className="close-ticket" onClick={() => setOpenTicketId(null)}>Close</button></div></>}
               </article>
             )) : <div className="empty-state admin-empty"><Ticket /><h2>No tickets received</h2><p>Player support tickets will appear here.</p></div>}
           </section>
           {tickets.length > ticketPageSize && <nav className="ticket-pagination"><button disabled={ticketPage === 1} onClick={() => setTicketPage((page) => page - 1)}>Previous</button><span>{ticketPage} / {ticketPages}</span><button disabled={ticketPage === ticketPages} onClick={() => setTicketPage((page) => page + 1)}>Next</button></nav>}
         </>
       )}
-      <SectionTitle title="Pending verification" />
-      {loading ? (
-        <section className="empty-state admin-empty">
-          <Loader2 className="spin" />
-          <h2>Loading applications</h2>
-        </section>
-      ) : pending.length ? (
-        <section className="pending-list real-pending-list">
-          {pending.map((player) => (
-            <article key={player.id}>
-              <div className="pending-avatar">
-                <Avatar profile={player} />
-              </div>
-              <div>
-                <b>{player.name || "Incomplete profile"}</b>
-                <span>
-                  {player.username ? `@${player.username}` : "No username"}
-                </span>
-              </div>
-              <button onClick={() => verify(player.id)}>
-                <UserCheck /> Verify
-              </button>
-            </article>
-          ))}
-        </section>
-      ) : (
-        <section className="empty-state admin-empty">
-          <div>
-            <UserCheck />
-          </div>
-          <h2>No pending applications</h2>
-          <p>New verification requests will appear here.</p>
-        </section>
-      )}
       {currentRole === "owner" && (
         <>
+          <SectionTitle title="Grant Gold Coins" />
+          <section className="coin-grant-panel">
+            <div className="coin-grant-heading"><CircleDollarSign /><span><b>Owner Coin Grant</b><small>Every grant is saved in the member’s Coin ledger.</small></span></div>
+            <div className="coin-grant-form">
+              <select aria-label="Member receiving Gold Coins" value={coinGrantForm.userId} onChange={(event) => setCoinGrantForm((current) => ({...current, userId:event.target.value}))}>
+                <option value="">Select member</option>
+                {players.filter((player) => player.role !== "owner").map((player) => <option key={player.id} value={player.id}>{player.name} · {player.coin_points ?? 10} Coins</option>)}
+              </select>
+              <input aria-label="Gold Coin amount" type="number" min="1" max="100000" step="1" inputMode="numeric" placeholder="Coins to give" value={coinGrantForm.amount} onChange={(event) => setCoinGrantForm((current) => ({...current, amount:event.target.value}))} />
+              <input aria-label="Reason for Gold Coin grant" maxLength={200} placeholder="Reason, e.g. Tournament reward" value={coinGrantForm.reason} onChange={(event) => setCoinGrantForm((current) => ({...current, reason:event.target.value}))} />
+              <button disabled={grantingCoins} onClick={() => void grantCoins()}>{grantingCoins ? "Granting…" : "Give Gold Coins"}</button>
+            </div>
+          </section>
           <SectionTitle title="Game Pass purchases" />
           <section className="gamepass-purchase-panel">
             <div className="gamepass-purchase-form">
@@ -1065,7 +1083,7 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
               .filter(
                 (player) =>
                   player.role !== "owner" &&
-                  (player.verified || player.role === "admin"),
+                  (player.verified || player.role === "admin" || player.role === "gm"),
               )
               .map((player) => (
                 <article key={player.id}>
@@ -1077,22 +1095,21 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
                     <span>
                       {player.role === "admin"
                         ? "Administrator"
+                        : player.role === "gm"
+                          ? "Game Master"
                         : player.username
                           ? `@${player.username}`
                           : "Verified player"}
                     </span>
                   </div>
-                  <button
-                    className={player.role === "admin" ? "demote-action" : ""}
-                    onClick={() =>
-                      changeRole(
-                        player.id,
-                        player.role === "admin" ? "player" : "admin",
-                      )
-                    }
-                  >
-                    {player.role === "admin" ? "Remove admin" : "Promote admin"}
-                  </button>
+                  <div className="role-actions">
+                    <select value={roleDrafts[player.id] || player.role} onChange={(event) => setRoleDrafts((current) => ({...current, [player.id]:event.target.value as "player" | "gm" | "admin"}))} aria-label={`Choose role for ${player.name}`}>
+                      <option value="player">Player</option>
+                      <option value="gm">Game Master</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <button disabled={(roleDrafts[player.id] || player.role) === player.role} onClick={() => void changeRole(player.id, roleDrafts[player.id] || (player.role as "player" | "gm" | "admin"))}>Apply role</button>
+                  </div>
                   <div className="gamepass-controls">
                     <div className="gamepass-label"><b>Grant Game Pass</b><small>{player.gamepass_forever ? "Forever Pass active" : player.gamepass_expires_at && new Date(player.gamepass_expires_at) > new Date() ? `Active until ${new Date(player.gamepass_expires_at).toLocaleDateString()}` : "No Game Pass · 5 free games daily"}</small></div>
                     <button onClick={() => void activateGamepass(player.id, 5)}>5 days</button>
@@ -1105,6 +1122,12 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
           </section>
         </>
       )}
+      {(currentRole === "owner" || currentRole === "admin") && <>
+        <SectionTitle title="10 Admin responsibilities" />
+        <ol className="admin-duty-list">
+          {ADMIN_TASKS.map((task) => <li key={task}>{task}</li>)}
+        </ol>
+      </>}
       <SectionTitle title="Ranking safeguards" />
       <section className="settings-card">
         <div>

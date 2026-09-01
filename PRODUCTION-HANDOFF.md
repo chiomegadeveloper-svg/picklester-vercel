@@ -36,7 +36,11 @@ That command runs the full Next.js production build before creating
 
 For a new Supabase database, run `supabase/picklester-schema.sql`, followed by
 the numbered upgrade files in ascending order through
-`picklester-v24-honesty-mode-response.sql`.
+`picklester-v32-staff-coins.sql`.
+
+V32 adds the Game Master role, owner-only Gold Coin grants, staff ticket
+support, and the related database permissions. The owner must run this SQL
+migration before using those controls in production.
 
 Honesty game sequence:
 

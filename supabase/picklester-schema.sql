@@ -6,8 +6,8 @@ create table if not exists public.profiles (
   name text not null default '',
   username text unique,
   avatar_url text,
-  verified boolean not null default false,
-  role text not null default 'player' check (role in ('player', 'admin', 'owner')),
+  verified boolean not null default true,
+  role text not null default 'player' check (role in ('player', 'gm', 'admin', 'owner')),
   mmr integer,
   level_name text,
   official_wins integer not null default 0,
@@ -22,7 +22,8 @@ create table if not exists public.profiles (
 alter table public.profiles add column if not exists name text not null default '';
 alter table public.profiles add column if not exists username text;
 alter table public.profiles add column if not exists avatar_url text;
-alter table public.profiles add column if not exists verified boolean not null default false;
+alter table public.profiles add column if not exists verified boolean not null default true;
+alter table public.profiles alter column verified set default true;
 alter table public.profiles add column if not exists role text not null default 'player';
 alter table public.profiles add column if not exists mmr integer;
 alter table public.profiles add column if not exists level_name text;
@@ -50,6 +51,21 @@ $$;
 
 revoke all on function public.is_picklester_staff() from public;
 grant execute on function public.is_picklester_staff() to authenticated;
+
+create or replace function public.is_picklester_support()
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role in ('owner', 'admin', 'gm')
+  );
+$$;
+
+revoke all on function public.is_picklester_support() from public;
+grant execute on function public.is_picklester_support() to authenticated;
 
 create or replace function public.is_picklester_owner()
 returns boolean
@@ -79,7 +95,7 @@ begin
     nullif(lower(new.raw_user_meta_data ->> 'username'), ''),
     new.raw_user_meta_data ->> 'avatar_url',
     case when lower(new.email) = 'kuramaartsdeveloper@gmail.com' then 'owner' else 'player' end,
-    coalesce(lower(new.email) = 'kuramaartsdeveloper@gmail.com', false)
+    true
   )
   on conflict (id) do nothing;
   return new;
@@ -99,11 +115,16 @@ select
   nullif(lower(u.raw_user_meta_data ->> 'username'), ''),
   u.raw_user_meta_data ->> 'avatar_url',
   case when lower(u.email) = 'kuramaartsdeveloper@gmail.com' then 'owner' else 'player' end,
-  coalesce(lower(u.email) = 'kuramaartsdeveloper@gmail.com', false)
+  true
 from auth.users u
 on conflict (id) do nothing;
 
--- The Picklester owner never needs player verification.
+-- Registration is immediate: existing and future accounts do not wait for approval.
+update public.profiles
+set verified = true, updated_at = now()
+where verified = false;
+
+-- The Picklester owner keeps the protected owner role.
 update public.profiles p
 set role = 'owner', verified = true, updated_at = now()
 from auth.users u
@@ -154,14 +175,14 @@ security definer set search_path = ''
 as $$
 begin
   if not public.is_picklester_owner() then
-    raise exception 'Only the Picklester owner can manage admins';
+    raise exception 'Only the Picklester owner can manage staff roles';
   end if;
-  if new_role not in ('player', 'admin') then
-    raise exception 'Invalid member role';
+  if new_role not in ('player', 'gm', 'admin') then
+    raise exception 'Choose Player, Game Master, or Admin';
   end if;
   update public.profiles
   set role = new_role,
-      verified = case when new_role = 'admin' then true else verified end,
+      verified = case when new_role in ('gm', 'admin') then true else verified end,
       updated_at = now()
   where id = target_user and role <> 'owner';
 end;
@@ -661,11 +682,11 @@ drop policy if exists "Verified players send private messages" on public.private
 create policy "Verified players send private messages" on public.private_messages for insert to authenticated
 with check (sender_id = auth.uid() and exists (select 1 from public.profiles p where p.id = auth.uid() and (p.verified or p.role in ('owner','admin'))));
 drop policy if exists "Users and staff read GM tickets" on public.gm_tickets;
-create policy "Users and staff read GM tickets" on public.gm_tickets for select to authenticated using (user_id = auth.uid() or public.is_picklester_staff());
+create policy "Users and staff read GM tickets" on public.gm_tickets for select to authenticated using (user_id = auth.uid() or public.is_picklester_support());
 drop policy if exists "Users create GM tickets" on public.gm_tickets;
 create policy "Users create GM tickets" on public.gm_tickets for insert to authenticated with check (user_id = auth.uid());
 drop policy if exists "Staff update GM tickets" on public.gm_tickets;
-create policy "Staff update GM tickets" on public.gm_tickets for update to authenticated using (public.is_picklester_staff()) with check (public.is_picklester_staff());
+create policy "Staff update GM tickets" on public.gm_tickets for update to authenticated using (public.is_picklester_support()) with check (public.is_picklester_support());
 grant select, insert on public.community_messages, public.private_messages to authenticated;
 grant select, insert, update on public.gm_tickets to authenticated;
 

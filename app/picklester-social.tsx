@@ -395,6 +395,10 @@ export function SocialHomeView({
   const accessLabel =
     profile?.role === "owner"
       ? "Owner account"
+      : profile?.role === "admin"
+        ? "Administrator"
+        : profile?.role === "gm"
+          ? "Game Master"
       : profile?.verified
         ? "Verified player"
         : "Verification required";
@@ -897,9 +901,13 @@ export function SocialProfileView({
             <ShieldCheck />{" "}
             {isOwner
               ? "Picklester owner account"
-              : target.verified
-                ? "Verified Picklester player"
-                : "Waiting for owner verification"}
+              : target.role === "admin"
+                ? "Picklester Administrator"
+                : target.role === "gm"
+                  ? "Picklester Game Master"
+                : target.verified
+                  ? "Active Picklester player"
+                  : "Picklester player"}
           </div>
           {featuredBadge && (
             <div className="featured-badge-line">
@@ -1815,7 +1823,7 @@ export function ChatDock({ viewer }: { viewer: PlayerProfile }) {
               </div>
             </TabsContent>
             <TabsContent value="gm" className="chat-tab-content gm-ticket-form">
-              <div className="my-ticket-list">{tickets.map((ticket) => <article key={ticket.id} className={openTicketId === ticket.id ? "open" : ""}><header><b>{ticket.subject}</b><span className={`ticket-status ${ticket.status}`}>{ticket.status.replace("_", " ")}</span></header>{openTicketId === ticket.id ? <div className="ticket-conversation"><div className="ticket-user-message"><b>You</b><p>{ticket.message}</p></div>{ticket.owner_reply ? <div className="ticket-owner-message"><b>Picklester Owner</b><p>{ticket.owner_reply}</p></div> : <small>The owner will reply soon.</small>}<button className="close-ticket" onClick={() => setOpenTicketId(null)}>Close conversation</button></div> : <button className="open-ticket" onClick={() => setOpenTicketId(ticket.id)}>Open conversation</button>}</article>)}</div>
+              <div className="my-ticket-list">{tickets.map((ticket) => <article key={ticket.id} className={openTicketId === ticket.id ? "open" : ""}><header><b>{ticket.subject}</b><span className={`ticket-status ${ticket.status}`}>{ticket.status.replace("_", " ")}</span></header>{openTicketId === ticket.id ? <div className="ticket-conversation"><div className="ticket-user-message"><b>You</b><p>{ticket.message}</p></div>{ticket.owner_reply ? <div className="ticket-owner-message"><b>Picklester Staff</b><p>{ticket.owner_reply}</p></div> : <small>Picklester staff will reply soon.</small>}<button className="close-ticket" onClick={() => setOpenTicketId(null)}>Close conversation</button></div> : <button className="open-ticket" onClick={() => setOpenTicketId(ticket.id)}>Open conversation</button>}</article>)}</div>
               <div className="gm-mark">
                 <CircleHelp />
               </div>

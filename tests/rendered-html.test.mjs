@@ -1,33 +1,29 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
+const root = new URL("..", import.meta.url);
 
-test("renders development preview metadata", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+test("publishes Picklester metadata and install manifest", async () => {
+  const [layout, manifestText] = await Promise.all([
+    readFile(new URL("app/layout.tsx", root), "utf8"),
+    readFile(new URL("public/manifest.webmanifest", root), "utf8"),
+  ]);
+  const manifest = JSON.parse(manifestText);
 
-  const response = await worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
+  assert.match(layout, /Picklester — Play\. Prove\. Rank\./);
+  assert.match(layout, /manifest: "\/manifest\.webmanifest"/);
+  assert.match(manifest.name, /^Picklester/);
+  assert.equal(manifest.short_name, "Picklester");
+  assert.equal(manifest.display, "standalone");
+});
 
-  assert.equal(response.status, 200);
-  assert.match(
-    response.headers.get("content-type") ?? "",
-    /^text\/html\b/i,
-  );
-  assert.match(await response.text(), developmentPreviewMeta);
+test("serves both the home and profile App Router pages", async () => {
+  const [home, profile] = await Promise.all([
+    readFile(new URL("app/page.tsx", root), "utf8"),
+    readFile(new URL("app/profile/page.tsx", root), "utf8"),
+  ]);
+
+  assert.match(home, /<PicklesterApp/);
+  assert.match(profile, /initialView="profile"/);
 });

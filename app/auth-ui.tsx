@@ -150,7 +150,7 @@ export function AuthView() {
         </h1>
         <p>
           {mode === "register"
-            ? "Register once and become a verified Picklester member automatically."
+            ? "Register once and become an active Picklester member automatically."
             : "Sign in to continue to your Picklester profile."}
         </p>
       </section>
