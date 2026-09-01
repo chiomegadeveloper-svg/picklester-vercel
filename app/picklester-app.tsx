@@ -388,6 +388,33 @@ export function PicklesterApp({
               alt="Picklester"
             />
           </button>
+          {profile && (
+            <button
+              className="subscription-status"
+              onClick={() => navigate("shop")}
+              aria-label="Open game pass shop"
+              title="Open game pass shop"
+            >
+              <span>
+                {profile.gamepass_forever
+                  ? "FOREVER PASS"
+                  : profile.gamepass_expires_at &&
+                      new Date(profile.gamepass_expires_at) > new Date()
+                    ? "GAME PASS ACTIVE"
+                    : "FREE PLAN"}
+              </span>
+              <strong>
+                {profile.gamepass_forever
+                  ? "Unlimited Games"
+                  : profile.gamepass_expires_at &&
+                      new Date(profile.gamepass_expires_at) > new Date()
+                    ? `Until ${new Date(profile.gamepass_expires_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}`
+                    : profile.extra_game_credits > 0
+                      ? `5 Daily + ${profile.extra_game_credits} Extra`
+                      : "5 Games Daily"}
+              </strong>
+            </button>
+          )}
           <div className="header-actions">
             {(profile?.role === "owner" || profile?.role === "admin") && (
               <button
