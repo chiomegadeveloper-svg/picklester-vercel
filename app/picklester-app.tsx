@@ -480,6 +480,7 @@ export function PicklesterApp({
           onResult={(result) => {
             setMatchResult(result);
             void loadPlayerData(session.user);
+            window.dispatchEvent(new CustomEvent("picklester:activity"));
           }}
         />
       )}
