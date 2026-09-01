@@ -279,6 +279,12 @@ button, input { font: inherit; } button { -webkit-tap-highlight-color: transpare
 .google-primary { width: 100%; min-height: 46px; display: grid; grid-template-columns: 30px 1fr 30px; align-items: center; border: 1px solid #3a4655; border-radius: 12px; background: #f7f8fa; color: #17202c; font-size: 10px; font-weight: 800; cursor: pointer; }
 .google-primary b { width: 25px; height: 25px; display: grid; place-items: center; justify-self: center; border-radius: 50%; background: conic-gradient(from -45deg, #4285f4 0 25%, #34a853 0 50%, #fbbc05 0 75%, #ea4335 0); color: white; font-size: 13px; }
 .google-primary span { grid-column: 2; }
+.google-safety-note { padding: 9px; display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: center; gap: 9px; border: 1px solid #38c98832; border-radius: 12px; background: #0b1714; }
+.google-safety-note > img { width: 82px; height: 35px; object-fit: cover; border: 1px solid #ffffff18; border-radius: 7px; }
+.google-safety-note > span { display: grid; min-width: 0; gap: 3px; }
+.google-safety-note b { display: flex; align-items: center; gap: 4px; color: #77e2ad; font-size: 8px; }
+.google-safety-note b svg { flex: 0 0 12px; width: 12px; height: 12px; }
+.google-safety-note small { color: #90a79e; font-size: 7px; line-height: 1.45; }
 .keep-login-option{position:relative;padding:8px 10px;display:grid!important;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:9px;border:1px solid #263342;border-radius:11px;background:#0b121a;color:#e8f0f7;cursor:pointer}.keep-login-option input{position:absolute;width:1px;height:1px;opacity:0}.keep-login-option>span{width:20px;height:20px;display:grid;place-items:center;border:2px solid #637285;border-radius:6px;color:#061008;font-size:12px;font-weight:900}.keep-login-option input:checked+span{border-color:#bdf400;background:#bdf400}.keep-login-option input:focus-visible+span{box-shadow:0 0 0 3px #08a9e540}.keep-login-option>div{display:grid;gap:2px}.keep-login-option b{font-size:9px}.keep-login-option small{color:#8493a3;font-size:7px}
 
 .owner-card { display: flex; align-items: center; gap: 10px; }
