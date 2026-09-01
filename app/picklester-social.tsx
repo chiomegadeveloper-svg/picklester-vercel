@@ -1441,16 +1441,16 @@ export function ShopView({ viewer, onPurchaseActivated }: { viewer: PlayerProfil
     window.history.replaceState({}, "", "/?view=shop");
 
     if (result === "cancel") {
-      setPaymentNotice({ tone: "error", title: "Payment cancelled", message: "No charge was made. You can try again anytime." });
+      queueMicrotask(() => setPaymentNotice({ tone: "error", title: "Payment cancelled", message: "No charge was made. You can try again anytime." }));
       return;
     }
     if (result === "failure" || !orderId) {
-      setPaymentNotice({ tone: "error", title: "Payment was not completed", message: "Your Game Pass was not activated. Please try again." });
+      queueMicrotask(() => setPaymentNotice({ tone: "error", title: "Payment was not completed", message: "Your Game Pass was not activated. Please try again." }));
       return;
     }
 
     let active = true;
-    setPaymentNotice({ tone: "pending", title: "Confirming your payment", message: "Please wait while Picklester activates your Game Pass." });
+    queueMicrotask(() => setPaymentNotice({ tone: "pending", title: "Confirming your payment", message: "Please wait while Picklester activates your Game Pass." }));
     void (async () => {
       for (let attempt = 0; attempt < 12 && active; attempt += 1) {
         const data = await verifyOrder(orderId);
@@ -1493,7 +1493,7 @@ export function ShopView({ viewer, onPurchaseActivated }: { viewer: PlayerProfil
       if (!response.ok || !checkout?.redirectUrl) {
         return toast.error(checkout?.error || "Maya checkout could not start.");
       }
-      window.location.href = checkout.redirectUrl;
+      window.location.assign(checkout.redirectUrl);
     } catch {
       toast.error("Maya checkout could not start. Please try again.");
     } finally {

@@ -1,20 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getMayaPassProduct } from "@/app/lib/maya-products";
+import { getMayaHost } from "@/app/lib/maya-server";
 
 export const runtime = "nodejs";
 
-const MAYA_HOSTS = {
-  sandbox: "https://pg-sandbox.paymaya.com",
-  production: "https://pg.paymaya.com",
-};
-
 function getSiteUrl() {
   return (process.env.NEXT_PUBLIC_SITE_URL || "https://www.picklester.asia").replace(/\/$/, "");
-}
-
-function getMayaHost() {
-  return process.env.MAYA_ENVIRONMENT === "production" ? MAYA_HOSTS.production : MAYA_HOSTS.sandbox;
 }
 
 function basicAuth(key: string) {

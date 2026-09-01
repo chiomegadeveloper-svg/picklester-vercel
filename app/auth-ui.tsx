@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import {
   Camera,
@@ -11,6 +12,7 @@ import {
   LogOut,
   Mail,
   Save,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -172,6 +174,27 @@ export function AuthView() {
           <b>G</b>
           <span>Continue with Google</span>
         </button>
+        <aside
+          className="google-safety-note"
+          aria-label="Google sign-in safety notice"
+        >
+          <Image
+            src="/supabase-signin-reference.png"
+            alt="Example Supabase address displayed during Google sign-in"
+            width={330}
+            height={123}
+          />
+          <span>
+            <b>
+              <ShieldCheck /> Safe Picklester sign-in
+            </b>
+            <small>
+              Google may show this random supabase.co address. It is
+              Picklester&apos;s secure sign-in service, not direct access to the
+              database. Your Google password is never shared with Picklester.
+            </small>
+          </span>
+        </aside>
         {mode === "signin" && (
           <label className="keep-login-option">
             <input

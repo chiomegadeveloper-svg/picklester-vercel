@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getMayaHost } from "@/app/lib/maya-server";
 
 export const runtime = "nodejs";
 
-const MAYA_HOSTS = {
-  sandbox: "https://pg-sandbox.paymaya.com",
-  production: "https://pg.paymaya.com",
-};
-
 function basicAuth(key: string) {
   return `Basic ${Buffer.from(`${key}:`).toString("base64")}`;
-}
-
-function mayaHost() {
-  return process.env.MAYA_ENVIRONMENT === "production" ? MAYA_HOSTS.production : MAYA_HOSTS.sandbox;
 }
 
 function clients() {
@@ -71,7 +63,7 @@ export async function GET(request: Request) {
     let mayaHttpStatus = 0;
     if (order.maya_checkout_id) {
       const statusResponse = await fetch(
-        `${mayaHost()}/payments/v1/payments/${encodeURIComponent(order.maya_checkout_id)}/status`,
+        `${getMayaHost()}/payments/v1/payments/${encodeURIComponent(order.maya_checkout_id)}/status`,
         { headers: { Authorization: basicAuth(publicKey) }, cache: "no-store" },
       );
       mayaHttpStatus = statusResponse.status;
@@ -80,7 +72,7 @@ export async function GET(request: Request) {
 
     if (!paymentStatus(payment).includes("SUCCESS")) {
       const rrnResponse = await fetch(
-        `${mayaHost()}/payments/v1/payment-rrns/${encodeURIComponent(order.request_reference_number)}`,
+        `${getMayaHost()}/payments/v1/payment-rrns/${encodeURIComponent(order.request_reference_number)}`,
         { headers: { Authorization: basicAuth(secretKey) }, cache: "no-store" },
       );
       mayaHttpStatus = rrnResponse.status;

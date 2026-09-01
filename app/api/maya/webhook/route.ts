@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getMayaHost } from "@/app/lib/maya-server";
 
 export const runtime = "nodejs";
-
-const MAYA_HOSTS = {
-  sandbox: "https://pg-sandbox.paymaya.com",
-  production: "https://pg.paymaya.com",
-};
-
-function getMayaHost() {
-  return process.env.MAYA_ENVIRONMENT === "production" ? MAYA_HOSTS.production : MAYA_HOSTS.sandbox;
-}
 
 function basicAuth(key: string) {
   return `Basic ${Buffer.from(`${key}:`).toString("base64")}`;
