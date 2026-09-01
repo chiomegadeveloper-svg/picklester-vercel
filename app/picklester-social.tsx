@@ -905,9 +905,9 @@ export function SocialProfileView({
                 ? "Picklester Administrator"
                 : target.role === "gm"
                   ? "Picklester Game Master"
-              : target.verified
-                ? "Verified Picklester player"
-                : "Waiting for owner verification"}
+                : target.verified
+                  ? "Active Picklester player"
+                  : "Picklester player"}
           </div>
           {featuredBadge && (
             <div className="featured-badge-line">

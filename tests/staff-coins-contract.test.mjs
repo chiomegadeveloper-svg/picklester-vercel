@@ -34,3 +34,16 @@ test("publishes exactly ten Admin responsibilities", async () => {
   assert.ok(duties);
   assert.equal((duties.match(/^\s*"/gm) || []).length, 10);
 });
+
+test("activates new and existing registrations without an approval queue", async () => {
+  const [migration, app] = await Promise.all([
+    readFile(new URL("supabase/picklester-v33-immediate-registration.sql", root), "utf8"),
+    readFile(new URL("app/picklester-app.tsx", root), "utf8"),
+  ]);
+
+  assert.match(migration, /alter column verified set default true/);
+  assert.match(migration, /where verified = false/);
+  assert.match(migration, /handle_new_picklester_user/);
+  assert.doesNotMatch(app, /Pending verification/);
+  assert.doesNotMatch(app, /No pending applications/);
+});

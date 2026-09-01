@@ -6,7 +6,7 @@ create table if not exists public.profiles (
   name text not null default '',
   username text unique,
   avatar_url text,
-  verified boolean not null default false,
+  verified boolean not null default true,
   role text not null default 'player' check (role in ('player', 'gm', 'admin', 'owner')),
   mmr integer,
   level_name text,
@@ -22,7 +22,8 @@ create table if not exists public.profiles (
 alter table public.profiles add column if not exists name text not null default '';
 alter table public.profiles add column if not exists username text;
 alter table public.profiles add column if not exists avatar_url text;
-alter table public.profiles add column if not exists verified boolean not null default false;
+alter table public.profiles add column if not exists verified boolean not null default true;
+alter table public.profiles alter column verified set default true;
 alter table public.profiles add column if not exists role text not null default 'player';
 alter table public.profiles add column if not exists mmr integer;
 alter table public.profiles add column if not exists level_name text;
@@ -94,7 +95,7 @@ begin
     nullif(lower(new.raw_user_meta_data ->> 'username'), ''),
     new.raw_user_meta_data ->> 'avatar_url',
     case when lower(new.email) = 'kuramaartsdeveloper@gmail.com' then 'owner' else 'player' end,
-    coalesce(lower(new.email) = 'kuramaartsdeveloper@gmail.com', false)
+    true
   )
   on conflict (id) do nothing;
   return new;
@@ -114,11 +115,16 @@ select
   nullif(lower(u.raw_user_meta_data ->> 'username'), ''),
   u.raw_user_meta_data ->> 'avatar_url',
   case when lower(u.email) = 'kuramaartsdeveloper@gmail.com' then 'owner' else 'player' end,
-  coalesce(lower(u.email) = 'kuramaartsdeveloper@gmail.com', false)
+  true
 from auth.users u
 on conflict (id) do nothing;
 
--- The Picklester owner never needs player verification.
+-- Registration is immediate: existing and future accounts do not wait for approval.
+update public.profiles
+set verified = true, updated_at = now()
+where verified = false;
+
+-- The Picklester owner keeps the protected owner role.
 update public.profiles p
 set role = 'owner', verified = true, updated_at = now()
 from auth.users u

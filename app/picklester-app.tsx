@@ -18,7 +18,6 @@ import {
   Swords,
   Ticket,
   Trophy,
-  UserCheck,
 } from "lucide-react";
 import {
   Dialog,
@@ -939,16 +938,6 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
     return () => window.clearTimeout(timer);
   }, [loadPlayers]);
 
-  async function verify(playerId: string) {
-    const { error } = await supabase.rpc("set_picklester_verification", {
-      target_user: playerId,
-      approved: true,
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Player verified.");
-    await loadPlayers();
-  }
-
   async function changeRole(playerId: string, role: "player" | "gm" | "admin") {
     const { error } = await supabase.rpc("set_picklester_role", {
       target_user: playerId,
@@ -1003,10 +992,9 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
     await loadPlayers();
   }
 
-  const pending = players.filter(
-    (player) => player.role === "player" && !player.verified,
-  );
-  const verified = players.filter((player) => player.verified).length;
+  const playerCount = players.filter((player) => player.role === "player").length;
+  const adminCount = players.filter((player) => player.role === "admin").length;
+  const gmCount = players.filter((player) => player.role === "gm").length;
   const ticketPageSize = 5;
   const ticketPages = Math.max(1, Math.ceil(tickets.length / ticketPageSize));
   const visibleTickets = tickets.slice((ticketPage - 1) * ticketPageSize, ticketPage * ticketPageSize);
@@ -1022,16 +1010,16 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
       </div>
       <section className="admin-stats">
         <article>
-          <span>Pending</span>
-          <b>{loading ? "…" : pending.length}</b>
-        </article>
-        <article>
-          <span>Verified</span>
-          <b>{loading ? "…" : verified}</b>
-        </article>
-        <article>
           <span>Players</span>
-          <b>{loading ? "…" : players.length}</b>
+          <b>{loading ? "…" : playerCount}</b>
+        </article>
+        <article>
+          <span>Admins</span>
+          <b>{loading ? "…" : adminCount}</b>
+        </article>
+        <article>
+          <span>Game Masters</span>
+          <b>{loading ? "…" : gmCount}</b>
         </article>
       </section>
       {adminError && <section className="admin-access-error"><ShieldCheck /><div><b>Control Center could not load</b><p>{adminError}</p></div><button onClick={() => void loadPlayers()}>Retry</button></section>}
@@ -1049,40 +1037,6 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
           {tickets.length > ticketPageSize && <nav className="ticket-pagination"><button disabled={ticketPage === 1} onClick={() => setTicketPage((page) => page - 1)}>Previous</button><span>{ticketPage} / {ticketPages}</span><button disabled={ticketPage === ticketPages} onClick={() => setTicketPage((page) => page + 1)}>Next</button></nav>}
         </>
       )}
-      {(currentRole === "owner" || currentRole === "admin") && <><SectionTitle title="Pending verification" />
-      {loading ? (
-        <section className="empty-state admin-empty">
-          <Loader2 className="spin" />
-          <h2>Loading applications</h2>
-        </section>
-      ) : pending.length ? (
-        <section className="pending-list real-pending-list">
-          {pending.map((player) => (
-            <article key={player.id}>
-              <div className="pending-avatar">
-                <Avatar profile={player} />
-              </div>
-              <div>
-                <b>{player.name || "Incomplete profile"}</b>
-                <span>
-                  {player.username ? `@${player.username}` : "No username"}
-                </span>
-              </div>
-              <button onClick={() => verify(player.id)}>
-                <UserCheck /> Verify
-              </button>
-            </article>
-          ))}
-        </section>
-      ) : (
-        <section className="empty-state admin-empty">
-          <div>
-            <UserCheck />
-          </div>
-          <h2>No pending applications</h2>
-          <p>New verification requests will appear here.</p>
-        </section>
-      )}</>}
       {currentRole === "owner" && (
         <>
           <SectionTitle title="Grant Gold Coins" />
