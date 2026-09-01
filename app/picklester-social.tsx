@@ -38,7 +38,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { MAYA_PASS_PRODUCTS, type MayaPassCode } from "./lib/maya-products";
+import { MAYA_PASS_PRODUCTS, getMayaPassProduct, type MayaPassCode } from "./lib/maya-products";
 import { supabase } from "./lib/supabase";
 import type {
   BadgeDefinition,
@@ -1234,6 +1234,12 @@ function requestCoordinates() {
 
 export function ShopView({ viewer }: { viewer: PlayerProfile }) {
   const [buying, setBuying] = useState<MayaPassCode | null>(null);
+  const [paymentNotice, setPaymentNotice] = useState<{
+    tone: "pending" | "success" | "error";
+    title: string;
+    message: string;
+  } | null>(null);
+  const paymentReturnHandled = useRef(false);
   const iconByCode: Record<MayaPassCode, ReactNode> = {
     extra_5_games: <Ticket />,
     pass_5_days: <Swords />,
@@ -1241,6 +1247,50 @@ export function ShopView({ viewer }: { viewer: PlayerProfile }) {
     pass_1_month: <Trophy />,
     pass_forever: <Sparkles />,
   };
+
+  useEffect(() => {
+    if (paymentReturnHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("maya");
+    const orderId = params.get("order");
+    if (!result) return;
+    paymentReturnHandled.current = true;
+    window.history.replaceState({}, "", "/?view=shop");
+
+    if (result === "cancel") {
+      setPaymentNotice({ tone: "error", title: "Payment cancelled", message: "No charge was made. You can try again anytime." });
+      return;
+    }
+    if (result === "failure" || !orderId) {
+      setPaymentNotice({ tone: "error", title: "Payment was not completed", message: "Your Game Pass was not activated. Please try again." });
+      return;
+    }
+
+    let active = true;
+    setPaymentNotice({ tone: "pending", title: "Confirming your payment", message: "Please wait while Picklester activates your Game Pass." });
+    void (async () => {
+      for (let attempt = 0; attempt < 12 && active; attempt += 1) {
+        const { data } = await supabase
+          .from("picklester_maya_orders")
+          .select("status,product_code")
+          .eq("id", orderId)
+          .eq("user_id", viewer.id)
+          .maybeSingle();
+        if (data?.status === "paid") {
+          const product = getMayaPassProduct(String(data.product_code));
+          const title = product?.title || "Game Pass";
+          setPaymentNotice({ tone: "success", title: "Purchase successful!", message: `${title} is now active on your Picklester account.` });
+          toast.success(`${title} successfully activated.`);
+          return;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1500));
+      }
+      if (active) {
+        setPaymentNotice({ tone: "pending", title: "Payment received", message: "Maya confirmation is still processing. Your pass will activate automatically." });
+      }
+    })();
+    return () => { active = false; };
+  }, [viewer.id]);
 
   async function buyPass(productCode: MayaPassCode) {
     if (!viewer.verified && viewer.role === "player")
@@ -1282,6 +1332,13 @@ export function ShopView({ viewer }: { viewer: PlayerProfile }) {
         </div>
         <ShoppingBag />
       </div>
+      {paymentNotice && (
+        <section className={`shop-payment-notice ${paymentNotice.tone}`} role="status">
+          {paymentNotice.tone === "success" ? <CheckCircle2 /> : <CircleHelp />}
+          <span><b>{paymentNotice.title}</b><small>{paymentNotice.message}</small></span>
+          <button onClick={() => setPaymentNotice(null)} aria-label="Dismiss payment message">×</button>
+        </section>
+      )}
       <section className="gamepass-shop-grid">
         {MAYA_PASS_PRODUCTS.map((pass) => (
           <article key={pass.code} className={pass.code === "pass_forever" ? "forever" : ""}>
