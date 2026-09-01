@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Award,
   Camera,
@@ -65,6 +65,7 @@ type FeedPost = {
   author_avatar_url: string | null;
   author_verified: boolean;
   feed_background_code?: string | null;
+  photo_url?: string | null;
 };
 
 type PostComment = { id:string; post_id:string; author_id:string; body:string; created_at:string; author_name:string; author_username:string|null; author_avatar_url:string|null };
@@ -83,6 +84,7 @@ type ActivityItem = {
   reacted_by_me: boolean;
   comment_count: number;
   feed_background_code?: string | null;
+  photo_url?: string | null;
 };
 
 function feedBackgroundStyle(code?: string | null): CSSProperties | undefined {
@@ -142,6 +144,29 @@ async function optimizeFeaturePhoto(file: File): Promise<Blob> {
   return blob;
 }
 
+async function optimizeFeedPhoto(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  let scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+  for (let resizeAttempt = 0; resizeAttempt < 4; resizeAttempt += 1) {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Photo conversion is unavailable.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    for (const quality of [0.84, 0.72, 0.6, 0.48, 0.36]) {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+      if (blob && blob.size <= 2 * 1024 * 1024) {
+        bitmap.close();
+        return blob;
+      }
+    }
+    scale *= 0.72;
+  }
+  bitmap.close();
+  throw new Error("The photo could not be reduced below 2MB.");
+}
+
 function PlayerImage({
   profile,
   label = "",
@@ -192,6 +217,15 @@ export function SocialHomeView({
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
   const [activityComments, setActivityComments] = useState<Record<string, ActivityComment[]>>({});
   const [activityDraft, setActivityDraft] = useState<Record<string, string>>({});
+  const [feedCaption, setFeedCaption] = useState("");
+  const [feedPhoto, setFeedPhoto] = useState<File | null>(null);
+  const [postingPhoto, setPostingPhoto] = useState(false);
+  const [expandedFeedPhoto, setExpandedFeedPhoto] = useState<string | null>(null);
+  const feedPhotoPreview = useMemo(() => feedPhoto ? URL.createObjectURL(feedPhoto) : null, [feedPhoto]);
+
+  useEffect(() => () => {
+    if (feedPhotoPreview) URL.revokeObjectURL(feedPhotoPreview);
+  }, [feedPhotoPreview]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadHome(filter), 0);
@@ -246,7 +280,7 @@ export function SocialHomeView({
       ]);
       setActivity((activityResult.data || []) as ActivityItem[]);
       if (error) {
-        const fallback = await supabase.from("player_posts").select("id,author_id,body,created_at").order("created_at", { ascending: false }).limit(30);
+        const fallback = await supabase.from("player_posts").select("id,author_id,body,photo_url,created_at").order("created_at", { ascending: false }).limit(30);
         setPosts((fallback.data || []).map((post) => ({...post, like_count: 0, liked_by_me: false, comment_count: 0, author_name: "Picklester player", author_username: null, author_avatar_url: null, author_verified: true})) as FeedPost[]);
       } else setPosts((data || []) as FeedPost[]);
       setPlayers([]);
@@ -284,6 +318,35 @@ export function SocialHomeView({
     });
     if (error) return toast.error(error.message);
     await loadHome(filter);
+  }
+
+  async function publishPhotoPost(event: React.FormEvent) {
+    event.preventDefault();
+    if (!profile) return toast.error("Please sign in before posting.");
+    if (!profile.verified && profile.role === "player") return toast.error("Verification is required before posting.");
+    if (!feedPhoto) return toast.error("Choose a photo first.");
+    if (!feedCaption.trim()) return toast.error("Add a short caption.");
+    if (!["image/jpeg","image/png","image/webp"].includes(feedPhoto.type)) return toast.error("Use a JPG, PNG, or WebP photo.");
+    setPostingPhoto(true);
+    let uploadedPath = "";
+    try {
+      const optimized = await optimizeFeedPhoto(feedPhoto);
+      uploadedPath = `${profile.id}/${crypto.randomUUID()}.webp`;
+      const upload = await supabase.storage.from("feed-media").upload(uploadedPath, optimized, { contentType: "image/webp", cacheControl: "3600" });
+      if (upload.error) throw upload.error;
+      const photoUrl = supabase.storage.from("feed-media").getPublicUrl(uploadedPath).data.publicUrl;
+      const { error } = await supabase.from("player_posts").insert({ author_id: profile.id, body: feedCaption.trim(), photo_url: photoUrl });
+      if (error) throw error;
+      setFeedCaption("");
+      setFeedPhoto(null);
+      toast.success("Photo posted to Recent.");
+      await loadHome("recent");
+    } catch (error) {
+      if (uploadedPath) void supabase.storage.from("feed-media").remove([uploadedPath]);
+      toast.error(error instanceof Error ? databaseError(error.message) : "Photo could not be posted.");
+    } finally {
+      setPostingPhoto(false);
+    }
   }
 
   async function toggleComments(postId: string) {
@@ -439,7 +502,7 @@ export function SocialHomeView({
             <p>Loading live Picklester data</p>
           </div>
         ) : filter === "recent" && activity.length ? (
-          <div className="activity-feed-list interactive-activity-list">{activity.map((item) => <article key={item.id} style={feedBackgroundStyle(item.feed_background_code)} className={`activity-item ${item.event_type}`}><button className="activity-main" onClick={() => onOpenProfile(item.actor_id)}><span>{item.actor_avatar_url ? <img src={item.actor_avatar_url} alt="" /> : <CircleUserRound />}</span><p><b>{item.actor_username ? `@${item.actor_username}` : item.actor_name}</b> {item.message}</p><time>{new Date(item.created_at).toLocaleDateString()}</time></button><footer><button className={item.reacted_by_me ? "liked" : ""} onClick={() => void toggleActivityReaction(item.id)}><PickleballReactIcon /> React · {item.reaction_count || 0}</button><button className={expandedActivity === item.id ? "comments-open" : ""} onClick={() => void toggleActivityComments(item.id)}><MessageCircle /> Comment · {item.comment_count || 0}</button></footer>{expandedActivity === item.id && <div className="post-comments">{(activityComments[item.id] || []).map((comment) => <div key={comment.id}><b>@{comment.author_username || comment.author_name}</b><p>{comment.body}</p></div>)}<form onSubmit={(event) => {event.preventDefault(); void addActivityComment(item.id)}}><input value={activityDraft[item.id] || ""} onChange={(event) => setActivityDraft((current) => ({...current,[item.id]:event.target.value}))} placeholder="Write a comment" maxLength={500}/><button><Send /></button></form></div>}</article>)}</div>
+          <div className="activity-feed-list interactive-activity-list">{activity.map((item) => <article key={item.id} style={feedBackgroundStyle(item.feed_background_code)} className={`activity-item ${item.event_type}`}><button className="activity-main" onClick={() => onOpenProfile(item.actor_id)}><span>{item.actor_avatar_url ? <img src={item.actor_avatar_url} alt="" /> : <CircleUserRound />}</span><p><b>{item.actor_username ? `@${item.actor_username}` : item.actor_name}</b> {item.message}</p><time>{new Date(item.created_at).toLocaleDateString()}</time></button>{item.photo_url && <button type="button" className={`feed-photo-toggle ${expandedFeedPhoto === item.id ? "expanded" : ""}`} onClick={() => setExpandedFeedPhoto((current) => current === item.id ? null : item.id)} aria-label={expandedFeedPhoto === item.id ? "Return photo to thumbnail" : "Expand photo"}><img src={item.photo_url} alt={item.message} /></button>}<footer><button className={item.reacted_by_me ? "liked" : ""} onClick={() => void toggleActivityReaction(item.id)}><PickleballReactIcon /> React · {item.reaction_count || 0}</button><button className={expandedActivity === item.id ? "comments-open" : ""} onClick={() => void toggleActivityComments(item.id)}><MessageCircle /> Comment · {item.comment_count || 0}</button></footer>{expandedActivity === item.id && <div className="post-comments">{(activityComments[item.id] || []).map((comment) => <div key={comment.id}><b>@{comment.author_username || comment.author_name}</b><p>{comment.body}</p></div>)}<form onSubmit={(event) => {event.preventDefault(); void addActivityComment(item.id)}}><input value={activityDraft[item.id] || ""} onChange={(event) => setActivityDraft((current) => ({...current,[item.id]:event.target.value}))} placeholder="Write a comment" maxLength={500}/><button><Send /></button></form></div>}</article>)}</div>
         ) : filter === "recent" && !posts.length ? (
           <SocialEmpty icon={<Flame />} title="No updates yet" text="Recorded player activity will appear here automatically." />
         ) : filter === "recent" || filter === "popular" ? (
@@ -449,6 +512,7 @@ export function SocialHomeView({
                 <article key={post.id} style={feedBackgroundStyle(post.feed_background_code)}>
                   <button className="post-author" onClick={() => onOpenProfile(post.author_id)}><span className="post-avatar">{post.author_avatar_url ? <img src={post.author_avatar_url} alt="" /> : <CircleUserRound />}</span><span><b>{post.author_name}</b><small>{post.author_username ? `@${post.author_username}` : "Picklester player"}</small></span>{post.author_verified && <ShieldCheck />}</button>
                   <p>{post.body}</p>
+                  {post.photo_url && <button type="button" className={`feed-photo-toggle ${expandedFeedPhoto === post.id ? "expanded" : ""}`} onClick={() => setExpandedFeedPhoto((current) => current === post.id ? null : post.id)} aria-label={expandedFeedPhoto === post.id ? "Return photo to thumbnail" : "Expand photo"}><img src={post.photo_url} alt={post.body} /></button>}
                   <footer><time>{new Date(post.created_at).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</time><button className={post.liked_by_me ? "liked" : ""} onClick={() => toggleLike(post.id)}><PickleballReactIcon /> React · {post.like_count}</button><button className={expandedPost === post.id ? "comments-open" : ""} onClick={() => void toggleComments(post.id)}><MessageCircle /> Comment · {post.comment_count || 0}</button></footer>
                   {expandedPost === post.id && <div className="post-comments">{(comments[post.id] || []).map((comment) => <div key={comment.id}><b>@{comment.author_username || comment.author_name}</b><p>{comment.body}</p></div>)}<form onSubmit={(event) => {event.preventDefault(); void addComment(post.id)}}><input value={commentDraft[post.id] || ""} onChange={(event) => setCommentDraft((current) => ({...current,[post.id]:event.target.value}))} placeholder="Write a comment" maxLength={500}/><button><Send /></button></form></div>}
                 </article>
@@ -498,6 +562,17 @@ export function SocialHomeView({
                 : "Search verified players by name or username."
             }
           />
+        )}
+        {filter === "recent" && profile && (profile.verified || profile.role !== "player") && (
+          <form className="photo-post-composer" onSubmit={(event) => void publishPhotoPost(event)}>
+            {feedPhotoPreview && <img src={feedPhotoPreview} alt="Selected post preview" />}
+            <label className="photo-post-picker">
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFeedPhoto(event.target.files?.[0] || null)} />
+              <Camera /> <span>{feedPhoto ? "Change photo" : "Attach photo"}</span>
+            </label>
+            <input value={feedCaption} onChange={(event) => setFeedCaption(event.target.value)} maxLength={180} placeholder="Write a short caption…" aria-label="Photo caption" />
+            <button type="submit" disabled={postingPhoto || !feedPhoto || !feedCaption.trim()}>{postingPhoto ? "Posting…" : "Post"}</button>
+          </form>
         )}
       </section>
     </div>
