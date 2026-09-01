@@ -150,7 +150,7 @@ export function AuthView() {
         </h1>
         <p>
           {mode === "register"
-            ? "Register first. Owner verification unlocks games, chat and player features."
+            ? "Register once and become a verified Picklester member automatically."
             : "Sign in to continue to your Picklester profile."}
         </p>
       </section>
@@ -330,7 +330,7 @@ export function CompleteProfile({
         <img src="/picklester-logo-transparent.png" alt="Picklester" />
         <small>ONE LAST STEP</small>
         <h1>Complete your profile</h1>
-        <p>Add your player name and username before requesting verification.</p>
+        <p>Add your player name and username to activate your membership.</p>
       </section>
       <ProfileForm user={user} profile={profile} onSaved={onSaved} />
       <button className="text-button" onClick={onSignOut}>
