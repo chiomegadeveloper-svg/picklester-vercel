@@ -100,7 +100,6 @@ begin
   where id = target_user
   for update;
   if not found then raise exception 'Player was not found'; end if;
-  if target_role = 'owner' then raise exception 'Choose a player or staff member'; end if;
 
   update public.profiles
   set coin_points = coin_points + coin_amount, updated_at = now()

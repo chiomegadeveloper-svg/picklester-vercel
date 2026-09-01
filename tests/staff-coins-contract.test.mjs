@@ -5,15 +5,19 @@ import test from "node:test";
 const root = new URL("..", import.meta.url);
 
 test("keeps Gold Coin grants owner-only and auditable", async () => {
-  const migration = await readFile(
-    new URL("supabase/picklester-v32-staff-coins.sql", root),
-    "utf8",
-  );
+  const [migration, selfGrantMigration, app] = await Promise.all([
+    readFile(new URL("supabase/picklester-v32-staff-coins.sql", root), "utf8"),
+    readFile(new URL("supabase/picklester-v34-owner-self-coins.sql", root), "utf8"),
+    readFile(new URL("app/picklester-app.tsx", root), "utf8"),
+  ]);
 
   assert.match(migration, /grant_picklester_coins/);
   assert.match(migration, /if not public\.is_picklester_owner\(\)/);
   assert.match(migration, /'owner_grant'/);
   assert.match(migration, /picklester_coin_ledger/);
+  assert.match(selfGrantMigration, /where id = target_user/);
+  assert.doesNotMatch(selfGrantMigration, /target_role = 'owner'/);
+  assert.match(app, /player\.role === "owner" \? " \(You\)"/);
 });
 
 test("supports Player, Game Master, and Admin assignments", async () => {
@@ -27,12 +31,14 @@ test("supports Player, Game Master, and Admin assignments", async () => {
   assert.match(app, /currentRole === "owner"/);
 });
 
-test("publishes exactly ten Admin responsibilities", async () => {
+test("keeps member tools collapsed and paginates ten names per page", async () => {
   const app = await readFile(new URL("app/picklester-app.tsx", root), "utf8");
-  const duties = app.match(/const ADMIN_TASKS = \[([\s\S]*?)\] as const;/)?.[1];
 
-  assert.ok(duties);
-  assert.equal((duties.match(/^\s*"/gm) || []).length, 10);
+  assert.match(app, /const memberPageSize = 10/);
+  assert.match(app, /className="member-summary"/);
+  assert.match(app, /openMemberId === player\.id/);
+  assert.match(app, />Close<\/button>/);
+  assert.doesNotMatch(app, /Admin responsibilities/);
 });
 
 test("activates new and existing registrations without an approval queue", async () => {

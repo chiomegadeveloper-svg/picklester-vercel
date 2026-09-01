@@ -7,10 +7,16 @@ const root = new URL("..", import.meta.url);
 test("keeps the Control Center responsive on narrow phones", async () => {
   const css = await readFile(new URL("app/globals.css", root), "utf8");
 
-  assert.match(css, /\.role-actions\{[^}]*min-width:142px/);
-  assert.match(css, /@media\(max-width:390px\)[^{]*\{[^}]*\.role-actions/);
+  assert.match(css, /\.member-role-list\{/);
+  assert.match(css, /\.member-summary\{/);
+  assert.match(css, /\.member-tools\{/);
   assert.match(css, /\.coin-grant-form\{[^}]*grid-template-columns/);
-  assert.match(css, /\.admin-duty-list\{[^}]*grid-template-columns/);
+});
+
+test("hides Restore Purchases from the owner profile", async () => {
+  const social = await readFile(new URL("app/picklester-social.tsx", root), "utf8");
+
+  assert.match(social, /\{isOwn && !isOwner && \(/);
 });
 
 test("labels the owner Coin controls for assistive technology", async () => {

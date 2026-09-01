@@ -1000,7 +1000,7 @@ export function SocialProfileView({
         </div>
       )}
 
-      {isOwn && (
+      {isOwn && !isOwner && (
         <section className="restore-purchase-row">
           <span>
             <RefreshCw />

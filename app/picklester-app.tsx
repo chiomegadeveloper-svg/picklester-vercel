@@ -856,19 +856,6 @@ function PlayView({
   );
 }
 
-const ADMIN_TASKS = [
-  "Review and verify genuine new-player accounts.",
-  "Check member names, usernames, and profile photos for compliance.",
-  "Answer player support tickets clearly and respectfully.",
-  "Monitor official-game pairing and incomplete match records.",
-  "Review score disputes and preserve supporting information.",
-  "Watch for suspicious results, repeat abuse, or rating manipulation.",
-  "Monitor volunteer-referee conduct and report recurring problems.",
-  "Help enforce community, feed, comment, and chat standards.",
-  "Guide players with Game Pass or payment concerns without changing balances.",
-  "Escalate bans, Coin grants, staff roles, and serious cases to the owner.",
-] as const;
-
 function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [tickets, setTickets] = useState<Array<{id:string;user_id:string;subject:string;message:string;status:string;owner_reply:string|null;created_at:string;user_name:string;user_username:string|null}>>([]);
@@ -882,6 +869,8 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
   const [adminError, setAdminError] = useState<string | null>(null);
   const [openTicketId, setOpenTicketId] = useState<string | null>(null);
   const [ticketPage, setTicketPage] = useState(1);
+  const [memberPage, setMemberPage] = useState(1);
+  const [openMemberId, setOpenMemberId] = useState<string | null>(null);
 
   const loadPlayers = useCallback(async () => {
     setLoading(true);
@@ -998,6 +987,25 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
   const ticketPageSize = 5;
   const ticketPages = Math.max(1, Math.ceil(tickets.length / ticketPageSize));
   const visibleTickets = tickets.slice((ticketPage - 1) * ticketPageSize, ticketPage * ticketPageSize);
+  const memberPageSize = 10;
+  const eligibleMembers = players.filter(
+    (player) =>
+      player.role !== "owner" &&
+      (player.verified || player.role === "admin" || player.role === "gm"),
+  );
+  const memberPages = Math.max(1, Math.ceil(eligibleMembers.length / memberPageSize));
+  const visibleMembers = eligibleMembers.slice((memberPage - 1) * memberPageSize, memberPage * memberPageSize);
+
+  useEffect(() => {
+    if (memberPage > memberPages) setMemberPage(memberPages);
+    if (openMemberId && !visibleMembers.some((member) => member.id === openMemberId))
+      setOpenMemberId(null);
+  }, [memberPage, memberPages, openMemberId, visibleMembers]);
+
+  function changeMemberPage(nextPage: number) {
+    setOpenMemberId(null);
+    setMemberPage(nextPage);
+  }
   return (
     <div className="view-stack page-view">
       <div className="page-heading admin-heading">
@@ -1052,7 +1060,7 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
             <div className="coin-grant-form">
               <select aria-label="Member receiving Gold Coins" value={coinGrantForm.userId} onChange={(event) => setCoinGrantForm((current) => ({...current, userId:event.target.value}))}>
                 <option value="">Select member</option>
-                {players.filter((player) => player.role !== "owner").map((player) => <option key={player.id} value={player.id}>{player.name} · {player.coin_points ?? 10} Coins</option>)}
+                {players.map((player) => <option key={player.id} value={player.id}>{player.name}{player.role === "owner" ? " (You)" : ""} · {player.coin_points ?? 10} Coins</option>)}
               </select>
               <input aria-label="Gold Coin amount" type="number" min="1" max="100000" step="1" inputMode="numeric" placeholder="Coins to give" value={coinGrantForm.amount} onChange={(event) => setCoinGrantForm((current) => ({...current, amount:event.target.value}))} />
               <input aria-label="Reason for Gold Coin grant" maxLength={200} placeholder="Reason, e.g. Tournament reward" value={coinGrantForm.reason} onChange={(event) => setCoinGrantForm((current) => ({...current, reason:event.target.value}))} />
@@ -1078,56 +1086,42 @@ function AdminView({ currentRole }: { currentRole: PlayerProfile["role"] }) {
             </div>
           </section>
           <SectionTitle title="Member roles" />
-          <section className="pending-list real-pending-list role-list">
-            {players
-              .filter(
-                (player) =>
-                  player.role !== "owner" &&
-                  (player.verified || player.role === "admin" || player.role === "gm"),
-              )
-              .map((player) => (
-                <article key={player.id}>
-                  <div className="pending-avatar">
-                    <Avatar profile={player} />
+          <section className="member-role-list">
+            {visibleMembers.map((player) => (
+              <article key={player.id} className={openMemberId === player.id ? "open" : ""}>
+                <button className="member-summary" type="button" aria-expanded={openMemberId === player.id} onClick={() => setOpenMemberId(player.id)}>
+                  {player.name || "Member"}
+                </button>
+                {openMemberId === player.id && (
+                  <div className="member-tools">
+                    <div className="member-tool-heading">
+                      <span><b>{player.name || "Member"}</b><small>Role and Game Pass tools</small></span>
+                      <button type="button" onClick={() => setOpenMemberId(null)}>Close</button>
+                    </div>
+                    <div className="role-actions">
+                      <select value={roleDrafts[player.id] || player.role} onChange={(event) => setRoleDrafts((current) => ({...current, [player.id]:event.target.value as "player" | "gm" | "admin"}))} aria-label={`Choose role for ${player.name}`}>
+                        <option value="player">Player</option>
+                        <option value="gm">Game Master</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <button disabled={(roleDrafts[player.id] || player.role) === player.role} onClick={() => void changeRole(player.id, roleDrafts[player.id] || (player.role as "player" | "gm" | "admin"))}>Apply role</button>
+                    </div>
+                    <div className="gamepass-controls">
+                      <div className="gamepass-label"><b>Grant Game Pass</b><small>{player.gamepass_forever ? "Forever Pass active" : player.gamepass_expires_at && new Date(player.gamepass_expires_at) > new Date() ? `Active until ${new Date(player.gamepass_expires_at).toLocaleDateString()}` : "No Game Pass · 5 free games daily"}</small></div>
+                      <button onClick={() => void activateGamepass(player.id, 5)}>5 days</button>
+                      <button onClick={() => void activateGamepass(player.id, 7)}>1 week</button>
+                      <button onClick={() => void activateGamepass(player.id, 30)}>1 month</button>
+                      <button onClick={() => void activateGamepass(player.id, 0)}>Forever</button>
+                    </div>
                   </div>
-                  <div>
-                    <b>{player.name || "Member"}</b>
-                    <span>
-                      {player.role === "admin"
-                        ? "Administrator"
-                        : player.role === "gm"
-                          ? "Game Master"
-                        : player.username
-                          ? `@${player.username}`
-                          : "Verified player"}
-                    </span>
-                  </div>
-                  <div className="role-actions">
-                    <select value={roleDrafts[player.id] || player.role} onChange={(event) => setRoleDrafts((current) => ({...current, [player.id]:event.target.value as "player" | "gm" | "admin"}))} aria-label={`Choose role for ${player.name}`}>
-                      <option value="player">Player</option>
-                      <option value="gm">Game Master</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                    <button disabled={(roleDrafts[player.id] || player.role) === player.role} onClick={() => void changeRole(player.id, roleDrafts[player.id] || (player.role as "player" | "gm" | "admin"))}>Apply role</button>
-                  </div>
-                  <div className="gamepass-controls">
-                    <div className="gamepass-label"><b>Grant Game Pass</b><small>{player.gamepass_forever ? "Forever Pass active" : player.gamepass_expires_at && new Date(player.gamepass_expires_at) > new Date() ? `Active until ${new Date(player.gamepass_expires_at).toLocaleDateString()}` : "No Game Pass · 5 free games daily"}</small></div>
-                    <button onClick={() => void activateGamepass(player.id, 5)}>5 days</button>
-                    <button onClick={() => void activateGamepass(player.id, 7)}>1 week</button>
-                    <button onClick={() => void activateGamepass(player.id, 30)}>1 month</button>
-                    <button onClick={() => void activateGamepass(player.id, 0)}>Forever</button>
-                  </div>
-                </article>
-              ))}
+                )}
+              </article>
+            ))}
+            {!loading && !visibleMembers.length && <p className="member-list-empty">No members found.</p>}
           </section>
+          {eligibleMembers.length > memberPageSize && <nav className="member-pagination" aria-label="Member pages"><button disabled={memberPage === 1} onClick={() => changeMemberPage(memberPage - 1)}>Previous</button><span>{memberPage} / {memberPages}</span><button disabled={memberPage === memberPages} onClick={() => changeMemberPage(memberPage + 1)}>Next</button></nav>}
         </>
       )}
-      {(currentRole === "owner" || currentRole === "admin") && <>
-        <SectionTitle title="10 Admin responsibilities" />
-        <ol className="admin-duty-list">
-          {ADMIN_TASKS.map((task) => <li key={task}>{task}</li>)}
-        </ol>
-      </>}
       <SectionTitle title="Ranking safeguards" />
       <section className="settings-card">
         <div>
