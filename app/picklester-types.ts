@@ -18,6 +18,7 @@ export type PlayerProfile = {
   volunteer_referee_records: number;
   gamepass_expires_at: string | null;
   gamepass_forever: boolean;
+  extra_game_credits: number;
   games_played_today?: number;
 };
 
@@ -69,4 +70,5 @@ export const emptyProfile = (user: User): PlayerProfile => ({
   volunteer_referee_records: 0,
   gamepass_expires_at: null,
   gamepass_forever: false,
+  extra_game_credits: 0,
 });
