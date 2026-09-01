@@ -37,7 +37,6 @@ export function AuthView() {
     () => (avatar ? URL.createObjectURL(avatar) : null),
     [avatar],
   );
-
   useEffect(
     () => () => {
       if (preview) URL.revokeObjectURL(preview);
@@ -337,6 +336,11 @@ export function ProfileForm({
     () => (avatar ? URL.createObjectURL(avatar) : profile.avatar_url),
     [avatar, profile.avatar_url],
   );
+  const isFirstSetup = !profile.name || !profile.username || !profile.avatar_url;
+  const estimatedCost = isFirstSetup ? 0
+    : (avatar ? 100 : 0)
+      + (name.trim() !== profile.name ? 150 : 0)
+      + (username.trim().toLowerCase() !== (profile.username || "").toLowerCase() ? 280 : 0);
 
   useEffect(
     () => () => {
@@ -354,6 +358,17 @@ export function ProfileForm({
       let avatarUrl = profile.avatar_url;
       if (avatar) avatarUrl = await uploadAvatar(user, avatar);
       const cleanUsername = username.trim().toLowerCase();
+      const firstSetup = !profile.name || !profile.username || !profile.avatar_url;
+      let serviceCost = 0;
+      if (!firstSetup) {
+        const { data: saved, error: saveError } = await supabase.rpc("update_picklester_profile_with_coins", {
+          new_name: name.trim(),
+          new_username: cleanUsername,
+          new_avatar_url: avatarUrl,
+        });
+        if (saveError) throw saveError;
+        serviceCost = Number(saved?.cost || 0);
+      }
       const { error: authError } = await supabase.auth.updateUser({
         data: {
           name: name.trim(),
@@ -362,8 +377,8 @@ export function ProfileForm({
         },
       });
       if (authError) throw authError;
-      await saveProfileRow(user.id, name.trim(), cleanUsername, avatarUrl);
-      toast.success("Profile updated.");
+      if (firstSetup) await saveProfileRow(user.id, name.trim(), cleanUsername, avatarUrl);
+      toast.success(serviceCost ? `Profile updated for ${serviceCost} Coins.` : "Profile updated.");
       onSaved();
       close?.();
     } catch (error) {
@@ -420,6 +435,7 @@ export function ProfileForm({
           </>
         )}
       </button>
+      {!isFirstSetup && <p className="profile-change-cost">Change cost: <b>{estimatedCost} Gold Coins</b> · Balance: {profile.coin_points ?? 10}</p>}
     </form>
   );
 }

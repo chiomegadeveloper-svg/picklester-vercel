@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const product = getMayaPassProduct(String(body.productCode || ""));
-    if (!product) return NextResponse.json({ error: "Choose a valid Game Pass." }, { status: 400 });
+    if (!product) return NextResponse.json({ error: "Choose a valid Shop product." }, { status: 400 });
 
     const supabase = getServerSupabase();
     const {
@@ -64,6 +64,8 @@ export async function POST(request: Request) {
         product_code: product.code,
         pass_days: product.passDays,
         extra_games: product.extraGames,
+        coin_reward: product.coinReward,
+        background_code: product.category === "background" ? product.code : null,
         amount: product.amount,
         currency: "PHP",
         request_reference_number: requestReferenceNumber,
