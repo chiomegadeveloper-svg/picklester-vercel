@@ -64,6 +64,7 @@ function paymentLooksSuccessful(payment: Record<string, unknown> | null, fallbac
 export async function POST(request: Request) {
   try {
     const payload = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    console.log("[maya/webhook] received", { status: payload.status || payload.paymentStatus, hasReference: Boolean(payload.requestReferenceNumber) });
     const reference = textValue(payload.requestReferenceNumber);
     if (!reference) return NextResponse.json({ received: true });
 
@@ -109,11 +110,14 @@ export async function POST(request: Request) {
     });
 
     if (fulfillError) {
+      console.error("[maya/webhook] fulfillment failed", fulfillError);
       return NextResponse.json({ received: true, error: fulfillError.message }, { status: 500 });
     }
 
+    console.log("[maya/webhook] fulfilled", { orderId: order.id });
     return NextResponse.json({ received: true, status: "paid" });
   } catch (error) {
+    console.error("[maya/webhook] failed", error);
     return NextResponse.json(
       { received: false, error: error instanceof Error ? error.message : "Webhook failed." },
       { status: 500 },
