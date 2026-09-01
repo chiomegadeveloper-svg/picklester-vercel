@@ -61,7 +61,7 @@ export const emptyProfile = (user: User): PlayerProfile => ({
   name: String(user.user_metadata?.name || user.user_metadata?.full_name || ""),
   username: user.user_metadata?.username ? String(user.user_metadata.username) : null,
   avatar_url: user.user_metadata?.avatar_url ? String(user.user_metadata.avatar_url) : null,
-  verified: user.email?.toLowerCase() === "kuramaartsdeveloper@gmail.com",
+  verified: true,
   role: user.email?.toLowerCase() === "kuramaartsdeveloper@gmail.com" ? "owner" : "player",
   mmr: null,
   level_name: null,
