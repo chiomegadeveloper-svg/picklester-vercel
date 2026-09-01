@@ -396,7 +396,9 @@ export function PicklesterApp({
               title="Open game pass shop"
             >
               <span>
-                {profile.gamepass_forever
+                {profile.role === "owner" || profile.role === "admin"
+                  ? "STAFF FOREVER PASS"
+                  : profile.gamepass_forever
                   ? "FOREVER PASS"
                   : profile.gamepass_expires_at &&
                       new Date(profile.gamepass_expires_at) > new Date()
@@ -404,7 +406,9 @@ export function PicklesterApp({
                     : "FREE PLAN"}
               </span>
               <strong>
-                {profile.gamepass_forever
+                {profile.role === "owner" || profile.role === "admin"
+                  ? "Unlimited Games"
+                  : profile.gamepass_forever
                   ? "Unlimited Games"
                   : profile.gamepass_expires_at &&
                       new Date(profile.gamepass_expires_at) > new Date()
