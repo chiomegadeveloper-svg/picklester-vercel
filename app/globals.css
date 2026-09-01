@@ -32,6 +32,9 @@ button, input { font: inherit; } button { -webkit-tap-highlight-color: transpare
 .brand-mark { width: 36px; height: 36px; padding: 3px; display: grid; place-items: center; border-radius: 12px; background: conic-gradient(var(--yellow) 0 25%, var(--blue) 0 50%, var(--orange) 0 75%, var(--green) 0); transform: rotate(-7deg); }
 .brand-mark span { width: 100%; height: 100%; display: grid; place-items: center; border-radius: 9px; background: #0b0e14; color: white; font-weight: 900; font-style: italic; transform: rotate(7deg); }
 .header-actions { display: flex; align-items: center; gap: 9px; }.icon-button, .mini-avatar { position: relative; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 1px solid #252c37; background: #141821; color: white; cursor: pointer; }
+.subscription-status { min-width: 0; flex: 1 1 auto; max-width: 180px; margin: 0 9px; padding: 7px 10px; display: grid; gap: 2px; text-align: left; border: 1px solid #bdf40045; border-radius: 10px; background: linear-gradient(135deg, #bdf40012, #08a9e50b); color: white; cursor: pointer; overflow: hidden; }
+.subscription-status span { color: #bdf400; font-size: 6px; line-height: 1; font-weight: 900; letter-spacing: .13em; white-space: nowrap; }
+.subscription-status strong { overflow: hidden; color: #eaf5ff; font-size: 9px; line-height: 1.2; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .icon-button i { position: absolute; top: 6px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--orange); border: 1px solid #141821; }.mini-avatar { background: linear-gradient(145deg, #2447c6, #152a79); font-size: 10px; font-weight: 800; border-color: #4262dd; }
 .app-content { padding: 16px 14px 112px; }.view-stack { display: flex; flex-direction: column; gap: 14px; animation: rise .28s ease both; } @keyframes rise { from { opacity: 0; transform: translateY(5px); } }
 .profile-scorecard { position: relative; overflow: hidden; padding: 16px; border-radius: 22px; border: 1px solid #2b3341; background: linear-gradient(145deg, #171c26, #0e1219 70%); box-shadow: inset 0 1px #ffffff0d, 0 18px 35px #0005; }
@@ -75,6 +78,7 @@ button, input { font: inherit; } button { -webkit-tap-highlight-color: transpare
 .field { width: 100%; height: 41px; padding: 0 11px; border: 1px solid #303947; border-radius: 11px; outline: none; background: #151a22; color: white; font-size: 9px; }.field:focus { border-color: var(--yellow); box-shadow: 0 0 0 2px #f2ea0015; }.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (min-width: 700px) { .phone-app { border-left: 1px solid #252c37; border-right: 1px solid #252c37; } }
 @media (max-width: 365px) { .app-content { padding-left: 10px; padding-right: 10px; }.quick-actions { grid-template-columns: 1fr; }.level-chip { display: none; }.match-dialog { padding: 14px; }.leader-row { grid-template-columns: 23px 30px 1fr auto; gap: 6px; }.player-avatar { width: 30px; height: 30px; } }
+@media (max-width: 390px) { .brand-lockup { width: 88px; }.official-logo { width: 80px; }.subscription-status { margin-inline: 5px; padding-inline: 7px; }.subscription-status span { font-size: 5px; }.subscription-status strong { font-size: 8px; }.header-actions { gap: 6px; } }
 @media (prefers-reduced-motion: reduce) { *, *:before, *:after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 
 /* Picklester official brand refinement */
