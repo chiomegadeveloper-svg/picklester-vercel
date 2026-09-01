@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     const orderId = url.searchParams.get("order");
     let query = admin
       .from("picklester_maya_orders")
-      .select("id,user_id,product_code,amount,currency,status,request_reference_number,maya_payment_id,created_at")
+      .select("id,user_id,product_code,amount,currency,status,request_reference_number,maya_checkout_id,maya_payment_id,created_at")
       .eq("user_id", userData.user.id);
 
     query = orderId
@@ -63,15 +63,33 @@ export async function GET(request: Request) {
     if (!order) return NextResponse.json({ status: "none" });
     if (order.status === "paid") return NextResponse.json({ status: "paid", productCode: order.product_code });
 
+    const publicKey = process.env.MAYA_PUBLIC_KEY;
     const secretKey = process.env.MAYA_SECRET_KEY;
-    if (!secretKey) throw new Error("Maya secret key is not configured.");
-    const mayaResponse = await fetch(
-      `${mayaHost()}/payments/v1/payment-rrns/${encodeURIComponent(order.request_reference_number)}`,
-      { headers: { Authorization: basicAuth(secretKey) }, cache: "no-store" },
-    );
-    const payment = (await mayaResponse.json().catch(() => ({}))) as Record<string, unknown>;
-    console.log("[maya/order-status] reconciliation", { orderId: order.id, mayaStatus: paymentStatus(payment), httpStatus: mayaResponse.status });
-    if (!mayaResponse.ok) return NextResponse.json({ status: "pending", productCode: order.product_code });
+    if (!publicKey || !secretKey) throw new Error("Maya API keys are not configured.");
+
+    let payment: Record<string, unknown> = {};
+    let mayaHttpStatus = 0;
+    if (order.maya_checkout_id) {
+      const statusResponse = await fetch(
+        `${mayaHost()}/payments/v1/payments/${encodeURIComponent(order.maya_checkout_id)}/status`,
+        { headers: { Authorization: basicAuth(publicKey) }, cache: "no-store" },
+      );
+      mayaHttpStatus = statusResponse.status;
+      payment = (await statusResponse.json().catch(() => ({}))) as Record<string, unknown>;
+    }
+
+    if (!paymentStatus(payment).includes("SUCCESS")) {
+      const rrnResponse = await fetch(
+        `${mayaHost()}/payments/v1/payment-rrns/${encodeURIComponent(order.request_reference_number)}`,
+        { headers: { Authorization: basicAuth(secretKey) }, cache: "no-store" },
+      );
+      mayaHttpStatus = rrnResponse.status;
+      const rrnPayload = (await rrnResponse.json().catch(() => ({}))) as Record<string, unknown> | Record<string, unknown>[];
+      payment = Array.isArray(rrnPayload) ? (rrnPayload[0] || {}) : rrnPayload;
+    }
+
+    console.log("[maya/order-status] reconciliation", { orderId: order.id, mayaStatus: paymentStatus(payment), httpStatus: mayaHttpStatus });
+    if (!paymentStatus(payment)) return NextResponse.json({ status: "pending", productCode: order.product_code });
 
     const status = paymentStatus(payment);
     const amount = paymentAmount(payment);
