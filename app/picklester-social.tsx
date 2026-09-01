@@ -331,9 +331,11 @@ export function SocialHomeView({
       >
         <div className="social-home-profile-row">
           <div className="avatar-ring social-home-avatar">
-            <PlayerImage profile={profile} />
+            <span className="social-home-avatar-clip">
+              <PlayerImage profile={profile} />
+            </span>
             {(profile?.verified || profile?.role === "owner") && (
-              <span>
+              <span className="social-home-avatar-status">
                 <CheckCircle2 />
               </span>
             )}
@@ -1130,6 +1132,30 @@ export function NearbyMapView({
               <div className="map-interaction-lock" aria-hidden="true" />
               <span className="map-radius-badge"><MapPinned /> 10 km search area</span>
               <span className="map-fixed-badge"><Lock /> Fixed</span>
+              {nearby.map((player) => {
+                const distanceRatio = Math.min(Number(player.distance_km) / 10, 1);
+                const bearing = (Number(player.bearing_deg) * Math.PI) / 180;
+                const left = 50 + Math.sin(bearing) * distanceRatio * 45;
+                const top = 50 - Math.cos(bearing) * distanceRatio * 45;
+                return (
+                  <button
+                    key={`map-${player.id}`}
+                    type="button"
+                    className="map-player-marker"
+                    style={{ left: `${left}%`, top: `${top}%` }}
+                    onClick={() => onOpenProfile(player.id)}
+                    aria-label={`Open ${player.name}'s profile`}
+                    title={`${player.name} · ${Number(player.distance_km).toFixed(1)} km away`}
+                  >
+                    {player.avatar_url ? (
+                      <img src={player.avatar_url} alt="" />
+                    ) : (
+                      <CircleUserRound />
+                    )}
+                    <i aria-hidden="true" />
+                  </button>
+                );
+              })}
               <div className="map-you-marker"><Crosshair /><small>You</small></div>
             </div>
             <div className="map-toolbar">

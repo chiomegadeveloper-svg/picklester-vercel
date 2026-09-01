@@ -481,6 +481,7 @@ language sql stable security definer set search_path = '' as $$
     from public.profile_locations l
     join public.profiles p on p.id = l.user_id
     where l.location_enabled and l.latitude is not null and l.longitude is not null
+      and l.updated_at >= now() - interval '5 minutes'
       and p.verified and p.id <> auth.uid()
       and exists (select 1 from public.profiles me where me.id = auth.uid() and (me.verified or me.role in ('owner','admin')))
   )

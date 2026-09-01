@@ -161,6 +161,52 @@ export function PicklesterApp({
     void loadPlayerData(session.user);
   }, [session?.user]);
 
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || !("geolocation" in navigator)) return;
+
+    let active = true;
+    const heartbeat = async () => {
+      if (!active || document.visibilityState === "hidden") return;
+      const { data } = await supabase
+        .from("profile_locations")
+        .select("location_enabled")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!active || !data?.location_enabled) return;
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (!active) return;
+          void supabase.from("profile_locations").upsert(
+            {
+              user_id: userId,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              location_enabled: true,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id" },
+          );
+        },
+        () => undefined,
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 45000 },
+      );
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void heartbeat();
+    };
+    void heartbeat();
+    const interval = window.setInterval(() => void heartbeat(), 60000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [session?.user?.id]);
+
   async function loadPlayerData(user: User) {
     const fallback = emptyProfile(user);
     const restoredAvatar = await restorePendingRegistrationAvatar(user);
