@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   Award,
@@ -37,6 +38,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { MAYA_PASS_PRODUCTS, type MayaPassCode } from "./lib/maya-products";
 import { supabase } from "./lib/supabase";
 import type {
   BadgeDefinition,
@@ -1230,31 +1232,67 @@ function requestCoordinates() {
   );
 }
 
-export function ShopView() {
-  const passes = [
-    { name: "5-Day Pass", detail: "Unlimited games for 5 days", icon: <Swords /> },
-    { name: "Weekly Pass", detail: "Unlimited games for 1 week", icon: <ShieldCheck /> },
-    { name: "Monthly Pass", detail: "Unlimited games for 1 month", icon: <Trophy /> },
-    { name: "Forever Pass", detail: "Unlimited games with no expiry", icon: <Sparkles /> },
-  ];
+export function ShopView({ viewer }: { viewer: PlayerProfile }) {
+  const [buying, setBuying] = useState<MayaPassCode | null>(null);
+  const iconByCode: Record<MayaPassCode, ReactNode> = {
+    extra_5_games: <Ticket />,
+    pass_5_days: <Swords />,
+    pass_1_week: <ShieldCheck />,
+    pass_1_month: <Trophy />,
+    pass_forever: <Sparkles />,
+  };
+
+  async function buyPass(productCode: MayaPassCode) {
+    if (!viewer.verified && viewer.role === "player")
+      return toast.error("Verification is required before purchasing a Game Pass.");
+
+    setBuying(productCode);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return toast.error("Please sign in again before purchasing.");
+
+      const response = await fetch("/api/maya/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ productCode }),
+      });
+      const checkout = await response.json().catch(() => null);
+      if (!response.ok || !checkout?.redirectUrl) {
+        return toast.error(checkout?.error || "Maya checkout could not start.");
+      }
+      window.location.href = checkout.redirectUrl;
+    } catch {
+      toast.error("Maya checkout could not start. Please try again.");
+    } finally {
+      setBuying(null);
+    }
+  }
+
   return (
     <div className="shop-page-view">
       <div className="page-heading">
         <div>
           <small>PICKLESTER MARKET</small>
           <h1>Shop</h1>
-          <p>Choose an unlimited-play Game Pass. Purchasing will be connected later.</p>
+          <p>Buy extra games or unlock unlimited official matches through Maya Checkout.</p>
         </div>
         <ShoppingBag />
       </div>
       <section className="gamepass-shop-grid">
-        {passes.map((pass, index) => (
-          <article key={pass.name} className={index === 3 ? "forever" : ""}>
-            <div className="gamepass-product-icon">{pass.icon}</div>
-            <small>GAME PASS</small>
-            <h2>{pass.name}</h2>
+        {MAYA_PASS_PRODUCTS.map((pass) => (
+          <article key={pass.code} className={pass.code === "pass_forever" ? "forever" : ""}>
+            <div className="gamepass-product-icon">{iconByCode[pass.code]}</div>
+            <small>{pass.extraGames ? "GAME CREDIT" : "GAME PASS"}</small>
+            <h2>{pass.title}</h2>
             <p>{pass.detail}</p>
-            <button disabled>Purchase setup coming soon</button>
+            <strong className="gamepass-price">₱{pass.amount.toLocaleString()}</strong>
+            <button disabled={buying === pass.code} onClick={() => void buyPass(pass.code)}>
+              {buying === pass.code ? "Opening Maya..." : "Pay with Maya"}
+            </button>
           </article>
         ))}
       </section>

@@ -449,7 +449,7 @@ export function PicklesterApp({
               onScan={() => void requireVerified(() => openMatch("scan"))}
             />
           )}
-          {view === "shop" && <ShopView />}
+          {view === "shop" && profile && <ShopView viewer={profile} />}
           {view === "profile" && profile && (
             <>
               <SocialProfileView
