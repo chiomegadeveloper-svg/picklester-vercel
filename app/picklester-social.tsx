@@ -1232,7 +1232,7 @@ function requestCoordinates() {
   );
 }
 
-export function ShopView({ viewer }: { viewer: PlayerProfile }) {
+export function ShopView({ viewer, onPurchaseActivated }: { viewer: PlayerProfile; onPurchaseActivated?: () => Promise<void> | void }) {
   const [buying, setBuying] = useState<MayaPassCode | null>(null);
   const [paymentNotice, setPaymentNotice] = useState<{
     tone: "pending" | "success" | "error";
@@ -1253,7 +1253,29 @@ export function ShopView({ viewer }: { viewer: PlayerProfile }) {
     const params = new URLSearchParams(window.location.search);
     const result = params.get("maya");
     const orderId = params.get("order");
-    if (!result) return;
+    const verifyOrder = async (order: string | null) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return null;
+      const response = await fetch(`/api/maya/order-status${order ? `?order=${encodeURIComponent(order)}` : ""}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      return response.ok ? response.json().catch(() => null) : null;
+    };
+
+    if (!result) {
+      paymentReturnHandled.current = true;
+      void verifyOrder(null).then(async (recovered) => {
+        if (recovered?.status !== "paid") return;
+        const product = getMayaPassProduct(String(recovered.productCode));
+        const title = product?.title || "Game Pass";
+        await onPurchaseActivated?.();
+        setPaymentNotice({ tone: "success", title: "Purchase successful!", message: `${title} is now active on your Picklester account.` });
+        toast.success(`${title} successfully activated.`);
+      });
+      return;
+    }
     paymentReturnHandled.current = true;
     window.history.replaceState({}, "", "/?view=shop");
 
@@ -1270,15 +1292,11 @@ export function ShopView({ viewer }: { viewer: PlayerProfile }) {
     setPaymentNotice({ tone: "pending", title: "Confirming your payment", message: "Please wait while Picklester activates your Game Pass." });
     void (async () => {
       for (let attempt = 0; attempt < 12 && active; attempt += 1) {
-        const { data } = await supabase
-          .from("picklester_maya_orders")
-          .select("status,product_code")
-          .eq("id", orderId)
-          .eq("user_id", viewer.id)
-          .maybeSingle();
+        const data = await verifyOrder(orderId);
         if (data?.status === "paid") {
-          const product = getMayaPassProduct(String(data.product_code));
+          const product = getMayaPassProduct(String(data.productCode));
           const title = product?.title || "Game Pass";
+          await onPurchaseActivated?.();
           setPaymentNotice({ tone: "success", title: "Purchase successful!", message: `${title} is now active on your Picklester account.` });
           toast.success(`${title} successfully activated.`);
           return;
@@ -1290,7 +1308,7 @@ export function ShopView({ viewer }: { viewer: PlayerProfile }) {
       }
     })();
     return () => { active = false; };
-  }, [viewer.id]);
+  }, [viewer.id, onPurchaseActivated]);
 
   async function buyPass(productCode: MayaPassCode) {
     if (!viewer.verified && viewer.role === "player")
