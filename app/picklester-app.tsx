@@ -491,6 +491,7 @@ export function PicklesterApp({
                 onEdit={() => setEditProfileOpen(true)}
                 onSignOut={signOut}
                 onMessage={(username) => window.dispatchEvent(new CustomEvent("picklester:message", {detail: username}))}
+                onPurchaseRestored={() => loadPlayerData(session.user)}
               />
               <div className="profile-install-row">
                 <InstallPicklester />
