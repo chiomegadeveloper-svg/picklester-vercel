@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Search,
   Send,
+  RefreshCw,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -517,12 +518,14 @@ export function SocialProfileView({
   onEdit,
   onSignOut,
   onMessage,
+  onPurchaseRestored,
 }: {
   viewer: PlayerProfile;
   viewedProfileId: string | null;
   onEdit: () => void;
   onSignOut: () => void;
   onMessage?: (username: string) => void;
+  onPurchaseRestored?: () => Promise<void> | void;
 }) {
   const targetId = viewedProfileId || viewer.id;
   const isOwn = targetId === viewer.id;
@@ -538,6 +541,7 @@ export function SocialProfileView({
   const [locationBusy, setLocationBusy] = useState(false);
   const [expandedPhoto, setExpandedPhoto] = useState<ProfilePhoto | null>(null);
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
+  const [restoringPurchases, setRestoringPurchases] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadProfile(), 0);
@@ -734,6 +738,29 @@ export function SocialProfileView({
     );
   }
 
+  async function restorePurchases() {
+    setRestoringPurchases(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return toast.error("Please sign in again before restoring purchases.");
+      const response = await fetch("/api/maya/restore-purchases", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) return toast.error(result?.error || "Restore Purchases failed.");
+      if (!result?.restored) return toast.info(result?.message || "No valid purchases were found.");
+      await onPurchaseRestored?.();
+      await loadProfile();
+      toast.success(result.message || "Game Pass restored successfully.");
+    } catch {
+      toast.error("Restore Purchases could not connect. Please try again.");
+    } finally {
+      setRestoringPurchases(false);
+    }
+  }
+
   const featuredBadge = badges.find((item) => item.is_featured);
   const badgeSlots = Array.from(
     { length: 4 },
@@ -849,6 +876,19 @@ export function SocialProfileView({
             onCheckedChange={setLocationSharing}
           />
         </div>
+      )}
+
+      {isOwn && (
+        <section className="restore-purchase-row">
+          <span>
+            <RefreshCw />
+            <b>Restore Purchases</b>
+            <small>Restore a valid Maya Forever Pass or an unexpired Game Pass.</small>
+          </span>
+          <button disabled={restoringPurchases} onClick={() => void restorePurchases()}>
+            {restoringPurchases ? "Checking…" : "Restore"}
+          </button>
+        </section>
       )}
 
       <section className="profile-gallery-section">
