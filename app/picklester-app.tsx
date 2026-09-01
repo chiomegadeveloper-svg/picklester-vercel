@@ -480,7 +480,9 @@ export function PicklesterApp({
               onScan={() => void requireVerified(() => openMatch("scan"))}
             />
           )}
-          {view === "shop" && profile && <ShopView viewer={profile} />}
+          {view === "shop" && profile && session && (
+            <ShopView viewer={profile} onPurchaseActivated={() => loadPlayerData(session.user)} />
+          )}
           {view === "profile" && profile && (
             <>
               <SocialProfileView
