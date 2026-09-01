@@ -1,12 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Award,
   Camera,
   CheckCircle2,
   CircleHelp,
+  CircleDollarSign,
   CircleUserRound,
   Crosshair,
   Flame,
@@ -63,6 +64,8 @@ type FeedPost = {
   author_username: string | null;
   author_avatar_url: string | null;
   author_verified: boolean;
+  feed_background_code?: string | null;
+  photo_url?: string | null;
 };
 
 type PostComment = { id:string; post_id:string; author_id:string; body:string; created_at:string; author_name:string; author_username:string|null; author_avatar_url:string|null };
@@ -80,7 +83,16 @@ type ActivityItem = {
   reaction_count: number;
   reacted_by_me: boolean;
   comment_count: number;
+  feed_background_code?: string | null;
+  photo_url?: string | null;
 };
+
+function feedBackgroundStyle(code?: string | null): CSSProperties | undefined {
+  const product = code ? getMayaPassProduct(code) : null;
+  if (!product?.backgroundCss) return undefined;
+  const [background, shadow] = product.backgroundCss.split(";box-shadow:");
+  return { background, boxShadow: shadow || undefined };
+}
 
 type ActivityComment = { id:string; activity_id:string; author_id:string; body:string; created_at:string; author_name:string; author_username:string|null; author_avatar_url:string|null };
 
@@ -130,6 +142,29 @@ async function optimizeFeaturePhoto(file: File): Promise<Blob> {
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.38));
   if (!blob) throw new Error("Conversion failed");
   return blob;
+}
+
+async function optimizeFeedPhoto(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  let scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+  for (let resizeAttempt = 0; resizeAttempt < 4; resizeAttempt += 1) {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Photo conversion is unavailable.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    for (const quality of [0.84, 0.72, 0.6, 0.48, 0.36]) {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+      if (blob && blob.size <= 2 * 1024 * 1024) {
+        bitmap.close();
+        return blob;
+      }
+    }
+    scale *= 0.72;
+  }
+  bitmap.close();
+  throw new Error("The photo could not be reduced below 2MB.");
 }
 
 function PlayerImage({
@@ -182,6 +217,15 @@ export function SocialHomeView({
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
   const [activityComments, setActivityComments] = useState<Record<string, ActivityComment[]>>({});
   const [activityDraft, setActivityDraft] = useState<Record<string, string>>({});
+  const [feedCaption, setFeedCaption] = useState("");
+  const [feedPhoto, setFeedPhoto] = useState<File | null>(null);
+  const [postingPhoto, setPostingPhoto] = useState(false);
+  const [expandedFeedPhoto, setExpandedFeedPhoto] = useState<string | null>(null);
+  const feedPhotoPreview = useMemo(() => feedPhoto ? URL.createObjectURL(feedPhoto) : null, [feedPhoto]);
+
+  useEffect(() => () => {
+    if (feedPhotoPreview) URL.revokeObjectURL(feedPhotoPreview);
+  }, [feedPhotoPreview]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadHome(filter), 0);
@@ -236,7 +280,7 @@ export function SocialHomeView({
       ]);
       setActivity((activityResult.data || []) as ActivityItem[]);
       if (error) {
-        const fallback = await supabase.from("player_posts").select("id,author_id,body,created_at").order("created_at", { ascending: false }).limit(30);
+        const fallback = await supabase.from("player_posts").select("id,author_id,body,photo_url,created_at").order("created_at", { ascending: false }).limit(30);
         setPosts((fallback.data || []).map((post) => ({...post, like_count: 0, liked_by_me: false, comment_count: 0, author_name: "Picklester player", author_username: null, author_avatar_url: null, author_verified: true})) as FeedPost[]);
       } else setPosts((data || []) as FeedPost[]);
       setPlayers([]);
@@ -274,6 +318,35 @@ export function SocialHomeView({
     });
     if (error) return toast.error(error.message);
     await loadHome(filter);
+  }
+
+  async function publishPhotoPost(event: React.FormEvent) {
+    event.preventDefault();
+    if (!profile) return toast.error("Please sign in before posting.");
+    if (!profile.verified && profile.role === "player") return toast.error("Verification is required before posting.");
+    if (!feedPhoto) return toast.error("Choose a photo first.");
+    if (!feedCaption.trim()) return toast.error("Add a short caption.");
+    if (!["image/jpeg","image/png","image/webp"].includes(feedPhoto.type)) return toast.error("Use a JPG, PNG, or WebP photo.");
+    setPostingPhoto(true);
+    let uploadedPath = "";
+    try {
+      const optimized = await optimizeFeedPhoto(feedPhoto);
+      uploadedPath = `${profile.id}/${crypto.randomUUID()}.webp`;
+      const upload = await supabase.storage.from("feed-media").upload(uploadedPath, optimized, { contentType: "image/webp", cacheControl: "3600" });
+      if (upload.error) throw upload.error;
+      const photoUrl = supabase.storage.from("feed-media").getPublicUrl(uploadedPath).data.publicUrl;
+      const { error } = await supabase.from("player_posts").insert({ author_id: profile.id, body: feedCaption.trim(), photo_url: photoUrl });
+      if (error) throw error;
+      setFeedCaption("");
+      setFeedPhoto(null);
+      toast.success("Photo posted to Recent.");
+      await loadHome("recent");
+    } catch (error) {
+      if (uploadedPath) void supabase.storage.from("feed-media").remove([uploadedPath]);
+      toast.error(error instanceof Error ? databaseError(error.message) : "Photo could not be posted.");
+    } finally {
+      setPostingPhoto(false);
+    }
   }
 
   async function toggleComments(postId: string) {
@@ -429,16 +502,17 @@ export function SocialHomeView({
             <p>Loading live Picklester data</p>
           </div>
         ) : filter === "recent" && activity.length ? (
-          <div className="activity-feed-list interactive-activity-list">{activity.map((item) => <article key={item.id} className={`activity-item ${item.event_type}`}><button className="activity-main" onClick={() => onOpenProfile(item.actor_id)}><span>{item.actor_avatar_url ? <img src={item.actor_avatar_url} alt="" /> : <CircleUserRound />}</span><p><b>{item.actor_username ? `@${item.actor_username}` : item.actor_name}</b> {item.message}</p><time>{new Date(item.created_at).toLocaleDateString()}</time></button><footer><button className={item.reacted_by_me ? "liked" : ""} onClick={() => void toggleActivityReaction(item.id)}><PickleballReactIcon /> React · {item.reaction_count || 0}</button><button className={expandedActivity === item.id ? "comments-open" : ""} onClick={() => void toggleActivityComments(item.id)}><MessageCircle /> Comment · {item.comment_count || 0}</button></footer>{expandedActivity === item.id && <div className="post-comments">{(activityComments[item.id] || []).map((comment) => <div key={comment.id}><b>@{comment.author_username || comment.author_name}</b><p>{comment.body}</p></div>)}<form onSubmit={(event) => {event.preventDefault(); void addActivityComment(item.id)}}><input value={activityDraft[item.id] || ""} onChange={(event) => setActivityDraft((current) => ({...current,[item.id]:event.target.value}))} placeholder="Write a comment" maxLength={500}/><button><Send /></button></form></div>}</article>)}</div>
+          <div className="activity-feed-list interactive-activity-list">{activity.map((item) => <article key={item.id} style={feedBackgroundStyle(item.feed_background_code)} className={`activity-item ${item.event_type}`}><button className="activity-main" onClick={() => onOpenProfile(item.actor_id)}><span>{item.actor_avatar_url ? <img src={item.actor_avatar_url} alt="" /> : <CircleUserRound />}</span><p><b>{item.actor_username ? `@${item.actor_username}` : item.actor_name}</b> {item.message}</p><time>{new Date(item.created_at).toLocaleDateString()}</time></button>{item.photo_url && <button type="button" className={`feed-photo-toggle ${expandedFeedPhoto === item.id ? "expanded" : ""}`} onClick={() => setExpandedFeedPhoto((current) => current === item.id ? null : item.id)} aria-label={expandedFeedPhoto === item.id ? "Return photo to thumbnail" : "Expand photo"}><img src={item.photo_url} alt={item.message} /></button>}<footer><button className={item.reacted_by_me ? "liked" : ""} onClick={() => void toggleActivityReaction(item.id)}><PickleballReactIcon /> React · {item.reaction_count || 0}</button><button className={expandedActivity === item.id ? "comments-open" : ""} onClick={() => void toggleActivityComments(item.id)}><MessageCircle /> Comment · {item.comment_count || 0}</button></footer>{expandedActivity === item.id && <div className="post-comments">{(activityComments[item.id] || []).map((comment) => <div key={comment.id}><b>@{comment.author_username || comment.author_name}</b><p>{comment.body}</p></div>)}<form onSubmit={(event) => {event.preventDefault(); void addActivityComment(item.id)}}><input value={activityDraft[item.id] || ""} onChange={(event) => setActivityDraft((current) => ({...current,[item.id]:event.target.value}))} placeholder="Write a comment" maxLength={500}/><button><Send /></button></form></div>}</article>)}</div>
         ) : filter === "recent" && !posts.length ? (
           <SocialEmpty icon={<Flame />} title="No updates yet" text="Recorded player activity will appear here automatically." />
         ) : filter === "recent" || filter === "popular" ? (
           posts.length ? (
             <div className="social-post-list">
               {posts.map((post) => (
-                <article key={post.id}>
+                <article key={post.id} style={feedBackgroundStyle(post.feed_background_code)}>
                   <button className="post-author" onClick={() => onOpenProfile(post.author_id)}><span className="post-avatar">{post.author_avatar_url ? <img src={post.author_avatar_url} alt="" /> : <CircleUserRound />}</span><span><b>{post.author_name}</b><small>{post.author_username ? `@${post.author_username}` : "Picklester player"}</small></span>{post.author_verified && <ShieldCheck />}</button>
                   <p>{post.body}</p>
+                  {post.photo_url && <button type="button" className={`feed-photo-toggle ${expandedFeedPhoto === post.id ? "expanded" : ""}`} onClick={() => setExpandedFeedPhoto((current) => current === post.id ? null : post.id)} aria-label={expandedFeedPhoto === post.id ? "Return photo to thumbnail" : "Expand photo"}><img src={post.photo_url} alt={post.body} /></button>}
                   <footer><time>{new Date(post.created_at).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</time><button className={post.liked_by_me ? "liked" : ""} onClick={() => toggleLike(post.id)}><PickleballReactIcon /> React · {post.like_count}</button><button className={expandedPost === post.id ? "comments-open" : ""} onClick={() => void toggleComments(post.id)}><MessageCircle /> Comment · {post.comment_count || 0}</button></footer>
                   {expandedPost === post.id && <div className="post-comments">{(comments[post.id] || []).map((comment) => <div key={comment.id}><b>@{comment.author_username || comment.author_name}</b><p>{comment.body}</p></div>)}<form onSubmit={(event) => {event.preventDefault(); void addComment(post.id)}}><input value={commentDraft[post.id] || ""} onChange={(event) => setCommentDraft((current) => ({...current,[post.id]:event.target.value}))} placeholder="Write a comment" maxLength={500}/><button><Send /></button></form></div>}
                 </article>
@@ -488,6 +562,17 @@ export function SocialHomeView({
                 : "Search verified players by name or username."
             }
           />
+        )}
+        {filter === "recent" && profile && (profile.verified || profile.role !== "player") && (
+          <form className="photo-post-composer" onSubmit={(event) => void publishPhotoPost(event)}>
+            {feedPhotoPreview && <img src={feedPhotoPreview} alt="Selected post preview" />}
+            <label className="photo-post-picker">
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFeedPhoto(event.target.files?.[0] || null)} />
+              <Camera /> <span>{feedPhoto ? "Change photo" : "Attach photo"}</span>
+            </label>
+            <input value={feedCaption} onChange={(event) => setFeedCaption(event.target.value)} maxLength={180} placeholder="Write a short caption…" aria-label="Photo caption" />
+            <button type="submit" disabled={postingPhoto || !feedPhoto || !feedCaption.trim()}>{postingPhoto ? "Posting…" : "Post"}</button>
+          </form>
         )}
       </section>
     </div>
@@ -771,6 +856,22 @@ export function SocialProfileView({
     (_, index) => photos.find((photo) => photo.slot === index + 1) || null,
   );
   const isOwner = target.role === "owner";
+  const isStaff = target.role === "owner" || target.role === "admin";
+  const passActive = Boolean(target.gamepass_expires_at && new Date(target.gamepass_expires_at) > new Date());
+  const passTitle = isStaff
+    ? "Staff Forever Pass"
+    : target.gamepass_forever
+      ? "Forever Pass"
+      : passActive
+        ? "Game Pass Active"
+        : "Free Plan";
+  const passDetail = isStaff || target.gamepass_forever
+    ? "Unlimited official games"
+    : passActive
+      ? `Unlimited until ${new Date(target.gamepass_expires_at as string).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}`
+      : target.extra_game_credits > 0
+        ? `5 games daily + ${target.extra_game_credits} extra game credits`
+        : "5 official games daily";
   return (
     <div className="sports-profile-page">
       <section className="profile-dashboard-card">
@@ -860,6 +961,19 @@ export function SocialProfileView({
           <ProfileStat icon={<Flame />} value={target.win_streak || 0} label="Win streak" tone="lime" />
         </div>
       </section>
+
+      {isOwn && (
+        <section className="profile-wallet-row">
+          <div className="profile-pass-status">
+            <ShieldCheck />
+            <span><small>GAME PASS STATUS</small><b>{passTitle}</b><em>{passDetail}</em></span>
+          </div>
+          <div className="profile-coin-balance">
+            <CircleDollarSign />
+            <span><small>COIN POINTS</small><b>{target.coin_points ?? 10}</b><em>Picklester Coins</em></span>
+          </div>
+        </section>
+      )}
 
       {isOwn && (
         <div className="gps-sharing-row">
@@ -1274,18 +1388,25 @@ function requestCoordinates() {
 
 export function ShopView({ viewer, onPurchaseActivated }: { viewer: PlayerProfile; onPurchaseActivated?: () => Promise<void> | void }) {
   const [buying, setBuying] = useState<MayaPassCode | null>(null);
+  const [coinBuying, setCoinBuying] = useState<MayaPassCode | null>(null);
+  const [shopTab, setShopTab] = useState<"gamepass" | "coins" | "background" | "special">("gamepass");
+  const [shopPage, setShopPage] = useState(1);
   const [paymentNotice, setPaymentNotice] = useState<{
     tone: "pending" | "success" | "error";
     title: string;
     message: string;
   } | null>(null);
   const paymentReturnHandled = useRef(false);
-  const iconByCode: Record<MayaPassCode, ReactNode> = {
+  const iconByCode: Partial<Record<MayaPassCode, ReactNode>> = {
     extra_5_games: <Ticket />,
     pass_5_days: <Swords />,
     pass_1_week: <ShieldCheck />,
     pass_1_month: <Trophy />,
     pass_forever: <Sparkles />,
+    coins_30: <CircleDollarSign />,
+    coins_50: <CircleDollarSign />,
+    coins_100: <CircleDollarSign />,
+    coins_500: <CircleDollarSign />,
   };
 
   useEffect(() => {
@@ -1309,7 +1430,7 @@ export function ShopView({ viewer, onPurchaseActivated }: { viewer: PlayerProfil
       void verifyOrder(null).then(async (recovered) => {
         if (recovered?.status !== "paid") return;
         const product = getMayaPassProduct(String(recovered.productCode));
-        const title = product?.title || "Game Pass";
+        const title = product?.title || "Shop purchase";
         await onPurchaseActivated?.();
         setPaymentNotice({ tone: "success", title: "Purchase successful!", message: `${title} is now active on your Picklester account.` });
         toast.success(`${title} successfully activated.`);
@@ -1335,7 +1456,7 @@ export function ShopView({ viewer, onPurchaseActivated }: { viewer: PlayerProfil
         const data = await verifyOrder(orderId);
         if (data?.status === "paid") {
           const product = getMayaPassProduct(String(data.productCode));
-          const title = product?.title || "Game Pass";
+          const title = product?.title || "Shop purchase";
           await onPurchaseActivated?.();
           setPaymentNotice({ tone: "success", title: "Purchase successful!", message: `${title} is now active on your Picklester account.` });
           toast.success(`${title} successfully activated.`);
@@ -1352,7 +1473,7 @@ export function ShopView({ viewer, onPurchaseActivated }: { viewer: PlayerProfil
 
   async function buyPass(productCode: MayaPassCode) {
     if (!viewer.verified && viewer.role === "player")
-      return toast.error("Verification is required before purchasing a Game Pass.");
+      return toast.error("Verification is required before purchasing from the Shop.");
 
     setBuying(productCode);
     try {
@@ -1380,13 +1501,27 @@ export function ShopView({ viewer, onPurchaseActivated }: { viewer: PlayerProfil
     }
   }
 
+  async function buyBackgroundWithCoins(productCode: MayaPassCode) {
+    setCoinBuying(productCode);
+    const { data, error } = await supabase.rpc("buy_picklester_background_with_coins", { product_code: productCode });
+    setCoinBuying(null);
+    if (error) return toast.error(databaseError(error.message));
+    await onPurchaseActivated?.();
+    toast.success(data?.purchased ? "Background purchased and activated." : "Owned background activated.");
+  }
+
+  const products = shopTab === "special" ? [] : MAYA_PASS_PRODUCTS.filter((product) => product.category === shopTab);
+  const pageSize = 4;
+  const pageCount = Math.max(1, Math.ceil(products.length / pageSize));
+  const visibleProducts = products.slice((shopPage - 1) * pageSize, shopPage * pageSize);
+
   return (
     <div className="shop-page-view">
       <div className="page-heading">
         <div>
           <small>PICKLESTER MARKET</small>
           <h1>Shop</h1>
-          <p>Buy extra games or unlock unlimited official matches through Maya Checkout.</p>
+          <p>Buy Game Passes and Picklester Coins securely through Maya Checkout.</p>
         </div>
         <ShoppingBag />
       </div>
@@ -1397,20 +1532,40 @@ export function ShopView({ viewer, onPurchaseActivated }: { viewer: PlayerProfil
           <button onClick={() => setPaymentNotice(null)} aria-label="Dismiss payment message">×</button>
         </section>
       )}
+      <nav className="shop-category-tabs" aria-label="Shop categories">
+        {([['gamepass','Game Pass'],['coins','Gold Coins'],['background','Backgrounds'],['special','Special']] as const).map(([code,label]) => (
+          <button key={code} className={shopTab === code ? "active" : ""} onClick={() => { setShopTab(code); setShopPage(1); }}>{label}</button>
+        ))}
+      </nav>
+      {shopTab === "special" ? (
+        <section className="special-service-grid">
+          <article><CircleUserRound /><span><small>SPECIAL SERVICE</small><h2>Change Avatar Photo</h2><p>Upload and activate a new profile avatar.</p></span><b>100 Coins</b></article>
+          <article><Award /><span><small>SPECIAL SERVICE</small><h2>Change Player Name</h2><p>Update the public name on your profile.</p></span><b>150 Coins</b></article>
+          <article><UserPlus /><span><small>SPECIAL SERVICE</small><h2>Change Username</h2><p>Choose a new unique Picklester username.</p></span><b>280 Coins</b></article>
+          <article className="frames-coming"><Sparkles /><span><small>COMING NEXT</small><h2>Avatar Frames</h2><p>Your frame products will be added from the next attachment.</p></span></article>
+        </section>
+      ) : (
       <section className="gamepass-shop-grid">
-        {MAYA_PASS_PRODUCTS.map((pass) => (
-          <article key={pass.code} className={pass.code === "pass_forever" ? "forever" : ""}>
-            <div className="gamepass-product-icon">{iconByCode[pass.code]}</div>
-            <small>{pass.extraGames ? "GAME CREDIT" : "GAME PASS"}</small>
+        {visibleProducts.map((pass) => (
+          <article key={pass.code} className={`${pass.code === "pass_forever" ? "forever" : ""} ${pass.category === "coins" ? "coin-product" : ""}`}>
+            <div className="gamepass-product-icon" style={pass.backgroundCss ? { background: pass.backgroundCss.split(';')[0] } : undefined}>{iconByCode[pass.code] || <ImagePlus />}</div>
+            <small>{pass.category === "background" ? (pass.code.startsWith('bg_neon') || ['bg_laser_blue','bg_hot_magenta','bg_plasma','bg_solar_orange'].includes(pass.code) ? "ELECTRIC BACKGROUND" : "BASIC BACKGROUND") : pass.category === "coins" ? "COIN PACKAGE" : pass.extraGames ? "GAME CREDIT" : "GAME PASS"}</small>
             <h2>{pass.title}</h2>
             <p>{pass.detail}</p>
-            <strong className="gamepass-price">₱{pass.amount.toLocaleString()}</strong>
+            <div className="shop-product-value">
+              <strong className="gamepass-price">₱{pass.amount.toLocaleString()}</strong>
+              {pass.coinReward > 0 && <span className="coin-reward"><CircleDollarSign /> +{pass.coinReward}</span>}
+            </div>
             <button disabled={buying === pass.code} onClick={() => void buyPass(pass.code)}>
               {buying === pass.code ? "Opening Maya..." : "Pay with Maya"}
             </button>
+            {pass.category === "background" && <button className="pay-with-coins" disabled={coinBuying === pass.code} onClick={() => void buyBackgroundWithCoins(pass.code)}>{coinBuying === pass.code ? "Processing..." : `${pass.coinPrice} Gold Coins`}</button>}
           </article>
         ))}
       </section>
+      )}
+      {shopTab !== "special" && pageCount > 1 && <nav className="shop-pagination"><button disabled={shopPage === 1} onClick={() => setShopPage((page) => page - 1)}>Previous</button><span>Page {shopPage} of {pageCount}</span><button disabled={shopPage === pageCount} onClick={() => setShopPage((page) => page + 1)}>Next</button></nav>}
+      <p className="shop-coin-note"><CircleDollarSign /> New players receive 10 Coins. Earn 2 daily while online, 2 for every win, and 1 for every loss.</p>
       <p className="shop-free-note">Every player receives 5 free games each day. Active Game Pass holders can play without the daily limit.</p>
     </div>
   );

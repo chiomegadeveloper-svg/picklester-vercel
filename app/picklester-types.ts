@@ -19,6 +19,8 @@ export type PlayerProfile = {
   gamepass_expires_at: string | null;
   gamepass_forever: boolean;
   extra_game_credits: number;
+  coin_points: number;
+  selected_feed_background: string | null;
   games_played_today?: number;
 };
 
@@ -71,4 +73,6 @@ export const emptyProfile = (user: User): PlayerProfile => ({
   gamepass_expires_at: null,
   gamepass_forever: false,
   extra_game_credits: 0,
+  coin_points: 10,
+  selected_feed_background: null,
 });

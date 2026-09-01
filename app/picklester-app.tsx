@@ -230,6 +230,7 @@ export function PicklesterApp({
       data = created.data;
       error = created.error;
     }
+    const dailyCoinClaim = await supabase.rpc("claim_picklester_daily_coins");
     if (!error && data && restoredAvatar) {
       const updated = await supabase
         .from("profiles")
@@ -249,6 +250,9 @@ export function PicklesterApp({
       loaded.verified = true;
     }
     setProfile(loaded);
+    if (dailyCoinClaim.data?.claimed) {
+      toast.success("Daily online reward: +2 Picklester Coins");
+    }
 
     const { data: leaders } = await supabase
       .from("profiles")
@@ -388,37 +392,6 @@ export function PicklesterApp({
               alt="Picklester"
             />
           </button>
-          {profile && (
-            <button
-              className="subscription-status"
-              onClick={() => navigate("shop")}
-              aria-label="Open game pass shop"
-              title="Open game pass shop"
-            >
-              <span>
-                {profile.role === "owner" || profile.role === "admin"
-                  ? "STAFF FOREVER PASS"
-                  : profile.gamepass_forever
-                  ? "FOREVER PASS"
-                  : profile.gamepass_expires_at &&
-                      new Date(profile.gamepass_expires_at) > new Date()
-                    ? "GAME PASS ACTIVE"
-                    : "FREE PLAN"}
-              </span>
-              <strong>
-                {profile.role === "owner" || profile.role === "admin"
-                  ? "Unlimited Games"
-                  : profile.gamepass_forever
-                  ? "Unlimited Games"
-                  : profile.gamepass_expires_at &&
-                      new Date(profile.gamepass_expires_at) > new Date()
-                    ? `Until ${new Date(profile.gamepass_expires_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}`
-                    : profile.extra_game_credits > 0
-                      ? `5 Daily + ${profile.extra_game_credits} Extra`
-                      : "5 Games Daily"}
-              </strong>
-            </button>
-          )}
           <div className="header-actions">
             {(profile?.role === "owner" || profile?.role === "admin") && (
               <button
